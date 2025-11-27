@@ -7,7 +7,7 @@ import (
 )
 
 func (db *DB) CreateDomain(ctx context.Context, fb *domain.Domain) (*domain.Domain, error) {
-	_, err := db.db.NewInsert().Model(fb).Exec(ctx)
+	_, err := db.Db.NewInsert().Model(fb).Exec(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -16,7 +16,16 @@ func (db *DB) CreateDomain(ctx context.Context, fb *domain.Domain) (*domain.Doma
 
 func (db *DB) ReadDomain(ctx context.Context, domainID string) (*domain.Domain, error) {
 	fb := &domain.Domain{}
-	err := db.db.NewSelect().Model(fb).Where("id = ?", domainID).Scan(ctx)
+	err := db.Db.NewSelect().Model(fb).Where("id = ?", domainID).Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return fb, nil
+}
+
+func (db *DB) ReadDomainByName(ctx context.Context, name string) (*domain.Domain, error) {
+	fb := &domain.Domain{}
+	err := db.Db.NewSelect().Model(fb).Where("name = ?", name).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -24,13 +33,13 @@ func (db *DB) ReadDomain(ctx context.Context, domainID string) (*domain.Domain, 
 }
 
 func (db *DB) DeleteDomain(ctx context.Context, domainID string) error {
-	_, err := db.db.NewDelete().Model((*domain.Domain)(nil)).Where("id = ?", domainID).Exec(ctx)
+	_, err := db.Db.NewDelete().Model((*domain.Domain)(nil)).Where("id = ?", domainID).Exec(ctx)
 	return err
 }
 
 func (db *DB) ListDomains(ctx context.Context, limit, offset int) ([]*domain.Domain, error) {
 	var domains []*domain.Domain
-	err := db.db.NewSelect().Model(&domains).Order("created_at DESC").Limit(limit).Offset(offset).Scan(ctx)
+	err := db.Db.NewSelect().Model(&domains).Order("created_at DESC").Limit(limit).Offset(offset).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}

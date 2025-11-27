@@ -20,7 +20,7 @@ import (
 
 type DB struct {
 	sqldb *sql.DB
-	db    *bun.DB
+	Db    *bun.DB
 }
 
 func NewDB() (*DB, error) {
@@ -96,7 +96,7 @@ func setupDB(sqldb *sql.DB, db *bun.DB) (*DB, error) {
 
 	return &DB{
 		sqldb: sqldb,
-		db:    db,
+		Db:    db,
 	}, nil
 }
 
@@ -138,6 +138,17 @@ func CreateIndexes(db *bun.DB) error {
 		return err
 	}
 
+	// create index on domains.name
+	if _, err := db.NewCreateIndex().
+		Model((*domain.Domain)(nil)).
+		Index("ux_domains_name").
+		Unique().
+		Column("name").
+		IfNotExists().
+		Exec(context.Background()); err != nil {
+		return err
+	}
+
 	// create index on domains.id + ts
 	_, err := db.ExecContext(
 		context.Background(),
@@ -147,16 +158,16 @@ func CreateIndexes(db *bun.DB) error {
 	return err
 }
 
-// GetOrCreateString tries to get a record by name, and creates it if not found.
+// GetOrCreateDimension tries to get a record by name, and creates it if not found.
 // Usage:
 //
 //	country := &models.Country{Name: "Canada"}
 //	if err := getOrCreateDimension(ctx, db, country, "name", country.Name); err != nil {
 //		panic(err)
 //	}
-func GetOrCreateDimension[T any](ctx context.Context, b *bun.DB, model *T, column string, value string) error {
+func GetOrCreateDimension[T any](ctx context.Context, d *DB, model *T, column string, value string) error {
 	// try to fetch existing row
-	err := b.NewSelect().
+	err := d.Db.NewSelect().
 		Model(model).
 		Where(column+" = ?", value).
 		Scan(ctx)
@@ -165,7 +176,7 @@ func GetOrCreateDimension[T any](ctx context.Context, b *bun.DB, model *T, colum
 	}
 
 	// insert if not exists, and return the row to populate ID
-	_, err = b.NewInsert().
+	_, err = d.Db.NewInsert().
 		Model(model).
 		On("CONFLICT (" + column + ") DO NOTHING").
 		Returning("*"). // fills ID? TODO
@@ -175,12 +186,12 @@ func GetOrCreateDimension[T any](ctx context.Context, b *bun.DB, model *T, colum
 	}
 
 	// if conflict happened, refetch to get the ID
-	return b.NewSelect().
+	return d.Db.NewSelect().
 		Model(model).
 		Where(column+" = ?", value).
 		Scan(ctx)
 }
 
 func (d *DB) Close() error {
-	return d.db.Close()
+	return d.Db.Close()
 }

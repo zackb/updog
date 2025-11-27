@@ -10,7 +10,7 @@ import (
 
 func (db *DB) ReadUser(ctx context.Context, id string) (*user.User, error) {
 	user := &user.User{}
-	err := db.db.NewSelect().
+	err := db.Db.NewSelect().
 		Model(user).
 		Where("u.id = ?", id).
 		Scan(ctx)
@@ -22,7 +22,7 @@ func (db *DB) ReadUser(ctx context.Context, id string) (*user.User, error) {
 
 func (db *DB) ReadUserByEmail(ctx context.Context, email string) (*user.User, error) {
 	user := &user.User{}
-	err := db.db.NewSelect().Model(user).Where("email = ?", email).Scan(ctx)
+	err := db.Db.NewSelect().Model(user).Where("email = ?", email).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (db *DB) CreateUser(ctx context.Context, u *user.User) error {
 		u.ID = id.NewID()
 		u.CreatedAt = time.Now()
 	}
-	_, err := db.db.NewInsert().Model(u).Exec(ctx)
+	_, err := db.Db.NewInsert().Model(u).Exec(ctx)
 	if err != nil {
 		return err
 	}
@@ -43,6 +43,6 @@ func (db *DB) CreateUser(ctx context.Context, u *user.User) error {
 
 func (db *DB) UpdateUser(ctx context.Context, u *user.User) error {
 	u.UpdatedAt = time.Now()
-	_, err := db.db.NewUpdate().Model(u).Where("id = ?", u.ID).Exec(ctx)
+	_, err := db.Db.NewUpdate().Model(u).Where("id = ?", u.ID).Exec(ctx)
 	return err
 }
