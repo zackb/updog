@@ -1,6 +1,8 @@
 package user
 
-import "context"
+import (
+	"context"
+)
 
 type Storage interface {
 	ReadUser(ctx context.Context, id string) (*User, error)
