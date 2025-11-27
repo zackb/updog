@@ -38,6 +38,27 @@ type OperatingSystem struct {
 	Name string `bun:",unique,notnull"`
 }
 
+type DeviceType struct {
+	bun.BaseModel `bun:"table:device_types"`
+
+	ID   int64  `bun:",pk,autoincrement"`
+	Name string `bun:",unique,notnull"` // desktop, mobile, tablet
+}
+
+type Language struct {
+	bun.BaseModel `bun:"table:languages"`
+
+	ID   int64  `bun:",pk,autoincrement"`
+	Code string `bun:",unique,notnull"` // en, fr, de, etc.
+}
+
+type Referrer struct {
+	bun.BaseModel `bun:"table:referrers"`
+
+	ID   int64  `bun:",pk,autoincrement"`
+	Host string `bun:",unique,notnull"` // only the hostname
+}
+
 type Pageview struct {
 	bun.BaseModel `bun:"table:pageviews"`
 
@@ -52,9 +73,12 @@ type Pageview struct {
 	BrowserID int64 `bun:"browser_id"`
 	OSID      int64 `bun:"os_id"`
 
-	// Relations
-	Country *Country         `bun:"rel:belongs-to,join:country_id=id"`
-	Region  *Region          `bun:"rel:belongs-to,join:region_id=id"`
-	Browser *Browser         `bun:"rel:belongs-to,join:browser_id=id"`
-	OS      *OperatingSystem `bun:"rel:belongs-to,join:os_id=id"`
+	// dimensions
+	Country    *Country         `bun:"rel:belongs-to,join:country_id=id"`
+	Region     *Region          `bun:"rel:belongs-to,join:region_id=id"`
+	Browser    *Browser         `bun:"rel:belongs-to,join:browser_id=id"`
+	OS         *OperatingSystem `bun:"rel:belongs-to,join:os_id=id"`
+	DeviceType *DeviceType      `bun:"rel:belongs-to,join:device_type_id=id"`
+	Language   *Language        `bun:"rel:belongs-to,join:language_id=id"`
+	Referrer   *Referrer        `bun:"rel:belongs-to,join:referrer_id=id"`
 }

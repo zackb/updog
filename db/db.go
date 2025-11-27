@@ -109,6 +109,9 @@ func CreateTables(db *bun.DB) error {
 		(*pageview.Browser)(nil),
 		(*pageview.OperatingSystem)(nil),
 		(*pageview.Pageview)(nil),
+		(*pageview.DeviceType)(nil),
+		(*pageview.Language)(nil),
+		(*pageview.Referrer)(nil),
 	}
 
 	for _, m := range models {
@@ -148,26 +151,34 @@ func CreateIndexes(db *bun.DB) error {
 // Usage:
 //
 //	country := &models.Country{Name: "Canada"}
-//	GetOrCreateString(ctx, db, "countries", "Canada", country)
-func GetOrCreateString[T any](ctx context.Context, b *bun.DB, tableName string, name string, dest T) error {
-
-	// try select first
+//	if err := getOrCreateDimension(ctx, db, country, "name", country.Name); err != nil {
+//		panic(err)
+//	}
+func GetOrCreateDimension[T any](ctx context.Context, b *bun.DB, model *T, column string, value string) error {
+	// try to fetch existing row
 	err := b.NewSelect().
-		Model(dest).
-		Where("name = ?", name).
+		Model(model).
+		Where(column+" = ?", value).
 		Scan(ctx)
-
 	if err == nil {
 		return nil
 	}
 
-	// insert if not found
+	// insert if not exists, and return the row to populate ID
 	_, err = b.NewInsert().
-		Model(dest).
-		On("CONFLICT (name) DO UPDATE SET name = EXCLUDED.name").
+		Model(model).
+		On("CONFLICT (" + column + ") DO NOTHING").
+		Returning("*"). // fills ID? TODO
 		Exec(ctx)
+	if err != nil {
+		return err
+	}
 
-	return err
+	// if conflict happened, refetch to get the ID
+	return b.NewSelect().
+		Model(model).
+		Where(column+" = ?", value).
+		Scan(ctx)
 }
 
 func (d *DB) Close() error {
