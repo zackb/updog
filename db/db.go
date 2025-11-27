@@ -14,6 +14,7 @@ import (
 	"github.com/uptrace/bun/extra/bundebug"
 	"github.com/zackb/updog/domain"
 	"github.com/zackb/updog/env"
+	"github.com/zackb/updog/pageview"
 	"github.com/zackb/updog/user"
 )
 
@@ -79,31 +80,94 @@ func setupDB(sqldb *sql.DB, db *bun.DB) (*DB, error) {
 	db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
 
 	// autocreate tables
-
-	// Users
-	if _, err := db.NewCreateTable().Model((*user.User)(nil)).IfNotExists().Exec(ctx); err != nil {
+	if err := CreateTables(db); err != nil {
 		return nil, err
 	}
 
-	// Create an index on User.Email
+	// create indexes
+	if err := CreateIndexes(db); err != nil {
+		return nil, err
+	}
+
+	// test connection
+	if err := db.PingContext(ctx); err != nil {
+		return nil, err
+	}
+
+	return &DB{
+		sqldb: sqldb,
+		db:    db,
+	}, nil
+}
+
+func CreateTables(db *bun.DB) error {
+	models := []any{
+		(*user.User)(nil),
+		(*domain.Domain)(nil),
+		(*pageview.Country)(nil),
+		(*pageview.Region)(nil),
+		(*pageview.Browser)(nil),
+		(*pageview.OperatingSystem)(nil),
+		(*pageview.Pageview)(nil),
+	}
+
+	for _, m := range models {
+		if _, err := db.NewCreateTable().
+			Model(m).
+			IfNotExists().
+			Exec(context.Background()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func CreateIndexes(db *bun.DB) error {
+
+	// create index on users.email
 	if _, err := db.NewCreateIndex().
 		Model((*user.User)(nil)).
 		Index("ux_users_email").
 		Unique().
 		Column("email").
 		IfNotExists().
-		Exec(ctx); err != nil {
-		return nil, err
+		Exec(context.Background()); err != nil {
+		return err
 	}
 
-	// Domains
-	if _, err := db.NewCreateTable().Model((*domain.Domain)(nil)).IfNotExists().Exec(ctx); err != nil {
-		return nil, err
+	// create index on domains.id + ts
+	_, err := db.ExecContext(
+		context.Background(),
+		`CREATE INDEX IF NOT EXISTS idx_pageviews_domain_ts 
+         ON pageviews (domain_id, ts DESC);`,
+	)
+	return err
+}
+
+// GetOrCreateString tries to get a record by name, and creates it if not found.
+// Usage:
+//
+//	country := &models.Country{Name: "Canada"}
+//	GetOrCreateString(ctx, db, "countries", "Canada", country)
+func GetOrCreateString[T any](ctx context.Context, b *bun.DB, tableName string, name string, dest T) error {
+
+	// try select first
+	err := b.NewSelect().
+		Model(dest).
+		Where("name = ?", name).
+		Scan(ctx)
+
+	if err == nil {
+		return nil
 	}
-	return &DB{
-		sqldb: sqldb,
-		db:    db,
-	}, nil
+
+	// insert if not found
+	_, err = b.NewInsert().
+		Model(dest).
+		On("CONFLICT (name) DO UPDATE SET name = EXCLUDED.name").
+		Exec(ctx)
+
+	return err
 }
 
 func (d *DB) Close() error {
