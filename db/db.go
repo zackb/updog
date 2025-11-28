@@ -73,6 +73,10 @@ func (db *DB) DomainStorage() domain.Storage {
 	return db
 }
 
+func (db *DB) PageviewStorage() pageview.Storage {
+	return db
+}
+
 func setupDB(sqldb *sql.DB, db *bun.DB) (*DB, error) {
 	ctx := context.Background()
 

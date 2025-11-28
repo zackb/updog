@@ -3,7 +3,10 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
+	"github.com/zackb/updog/api"
+	"github.com/zackb/updog/auth"
 	"github.com/zackb/updog/db"
 	"github.com/zackb/updog/enrichment"
 	"github.com/zackb/updog/handler"
@@ -23,9 +26,21 @@ func main() {
 		log.Fatal("Error initializing enricher:", err)
 	}
 
+	// create auth service
+	expHours := time.Duration(100) * time.Hour
+	auth, err := auth.NewAuthService("jwks.json", expHours)
+
+	if err != nil {
+		log.Fatal("Error initializing auth service:", err)
+	}
+
+	// initialize api
+	api := api.NewAPI(store, auth)
+
 	// create http server
 	server := serve.NewHTTPServer(func(mux *http.ServeMux) {
 		mux.Handle("/view", handler.Handler(store, store, enricher))
+		mux.Handle("/api/", api.Routes())
 	})
 
 	sig := signal.Stop(func() {
