@@ -8,9 +8,11 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"github.com/zackb/updog/auth"
 	"github.com/zackb/updog/db"
+	"github.com/zackb/updog/domain"
 	"github.com/zackb/updog/env"
 	"github.com/zackb/updog/user"
 )
@@ -57,6 +59,8 @@ func (f *Frontend) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/join", f.join)
 	mux.HandleFunc("/login", f.login)
 	mux.HandleFunc("/dashboard", f.authMiddleware(f.dashboard))
+	mux.HandleFunc("/domains", f.authMiddleware(f.domains))
+	mux.HandleFunc("/domains/verify", f.authMiddleware(f.verifyDomain))
 	mux.HandleFunc("/", f.index)
 }
 
@@ -80,9 +84,171 @@ func (f *Frontend) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
-	if err := tmpl.ExecuteTemplate(w, "dashboard.html", nil); err != nil {
+	user := f.userFromRequest(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	// get user's domains
+	domains, err := f.db.DomainStorage().ListDomainsByUser(r.Context(), user.ID)
+	if err != nil {
+		log.Printf("Failed to list domains: %v", err)
+		http.Error(w, "Failed to load dashboard", http.StatusInternalServerError)
+		return
+	}
+
+	// get selected domain - first verified domain, or first domain, or nil
+	var selectedDomain *domain.Domain
+	for _, d := range domains {
+		if d.Verified {
+			selectedDomain = d
+			break
+		}
+	}
+
+	if selectedDomain == nil && len(domains) > 0 {
+		selectedDomain = domains[0]
+	}
+
+	// fetch pageview stats for selected domain
+	stats := &DashboardStats{}
+	if selectedDomain != nil {
+		stats.SelectedDomain = selectedDomain
+		// get pageviews for the last 30 days
+		end := time.Now()
+		start := end.AddDate(0, 0, -30)
+		count, err := f.db.PageviewStorage().CountPageviewsByDomainID(r.Context(), selectedDomain.ID, start, end)
+		if err != nil {
+			log.Printf("Failed to count pageviews: %v", err)
+		} else {
+			stats.TotalPageviews = count
+		}
+	}
+
+	data := PageData{
+		Title: "Dashboard",
+		User:  user,
+		Stats: stats,
+	}
+
+	if err := tmpl.ExecuteTemplate(w, "dashboard.html", data); err != nil {
 		http.Error(w, "Failed to render analytics page", http.StatusInternalServerError)
 	}
+}
+
+func (f *Frontend) domains(w http.ResponseWriter, r *http.Request) {
+	user := f.userFromRequest(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	// POST create domain
+	if r.Method == http.MethodPost {
+		// Create new domain
+		name := r.FormValue("name")
+		if name == "" {
+			http.Error(w, "Domain name is required", http.StatusBadRequest)
+			return
+		}
+
+		domain := &domain.Domain{
+			Name:     name,
+			UserID:   user.ID,
+			Verified: false,
+		}
+
+		_, err := f.db.DomainStorage().CreateDomain(r.Context(), domain)
+		if err != nil {
+			log.Printf("Failed to create domain: %v", err)
+			http.Error(w, "Failed to create domain", http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, "/domains", http.StatusSeeOther)
+		return
+	}
+
+	// GET list domains
+	domains, err := f.db.DomainStorage().ListDomainsByUser(r.Context(), user.ID)
+	if err != nil {
+		log.Printf("Failed to list domains: %v", err)
+		http.Error(w, "Failed to list domains", http.StatusInternalServerError)
+		return
+	}
+
+	data := PageData{
+		Title:   "Domains",
+		User:    user,
+		Domains: domains,
+	}
+
+	if err := tmpl.ExecuteTemplate(w, "domains.html", data); err != nil {
+		http.Error(w, "Failed to render domains page", http.StatusInternalServerError)
+	}
+}
+
+func (f *Frontend) verifyDomain(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	domainID := r.FormValue("domain_id")
+	if domainID == "" {
+		http.Error(w, "Domain ID is required", http.StatusBadRequest)
+		return
+	}
+
+	d, err := f.db.DomainStorage().ReadDomain(r.Context(), domainID)
+	if err != nil {
+		log.Printf("Failed to read domain: %v", err)
+		http.Error(w, "Domain not found", http.StatusNotFound)
+		return
+	}
+
+	// verify ownership by checking for the file
+	verificationURL := "http://" + d.Name + "/updog_" + d.VerificationToken + ".txt"
+	resp, err := http.Get(verificationURL)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		log.Printf("Verification failed for %s: %v", d.Name, err)
+		http.Error(w, "Verification failed. Please ensure the file exists at: "+verificationURL, http.StatusBadRequest)
+		return
+	}
+	defer resp.Body.Close()
+
+	// read body
+	buf := make([]byte, 512)
+	n, err := resp.Body.Read(buf)
+	if err != nil && err.Error() != "EOF" {
+		log.Printf("Failed to read verification file: %v", err)
+		http.Error(w, "Failed to read verification file", http.StatusInternalServerError)
+		return
+	}
+
+	bodyContent := string(buf[:n])
+	if bodyContent != d.VerificationToken {
+		log.Printf("Verification token mismatch for %s", d.Name)
+		http.Error(w, "Verification token mismatch. Expected content: "+d.VerificationToken, http.StatusBadRequest)
+		return
+	}
+
+	// update domain as verified
+	d.Verified = true
+	_, err = f.db.Db.NewUpdate().
+		Model(d).
+		Column("verified").
+		Where("id = ?", d.ID).
+		Exec(r.Context())
+
+	if err != nil {
+		log.Printf("Failed to update domain: %v", err)
+		http.Error(w, "Failed to verify domain", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/domains", http.StatusSeeOther)
 }
 
 func (f *Frontend) index(w http.ResponseWriter, r *http.Request) {

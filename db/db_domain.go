@@ -45,3 +45,16 @@ func (db *DB) ListDomains(ctx context.Context, limit, offset int) ([]*domain.Dom
 	}
 	return domains, nil
 }
+
+func (db *DB) ListDomainsByUser(ctx context.Context, userID string) ([]*domain.Domain, error) {
+	var domains []*domain.Domain
+	err := db.Db.NewSelect().
+		Model(&domains).
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return domains, nil
+}
