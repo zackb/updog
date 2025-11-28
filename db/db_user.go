@@ -12,7 +12,7 @@ func (db *DB) ReadUser(ctx context.Context, id string) (*user.User, error) {
 	user := &user.User{}
 	err := db.Db.NewSelect().
 		Model(user).
-		Where("u.id = ?", id).
+		Where("id = ?", id).
 		Scan(ctx)
 	if err != nil {
 		return nil, err

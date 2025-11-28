@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"context"
 	"embed"
 	"html/template"
 	"io/fs"
@@ -55,8 +56,27 @@ func (f *Frontend) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/logout", f.logout)
 	mux.HandleFunc("/join", f.join)
 	mux.HandleFunc("/login", f.login)
-	mux.HandleFunc("/dashboard", f.dashboard)
+	mux.HandleFunc("/dashboard", f.authMiddleware(f.dashboard))
 	mux.HandleFunc("/", f.index)
+}
+
+func (f *Frontend) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token := f.auth.IsAuthenticated(r)
+		if token == nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		user, err := f.db.UserStorage().ReadUser(r.Context(), token.ClientId)
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), contextKeyUser, user)
+		next(w, r.WithContext(ctx))
+	}
 }
 
 func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {

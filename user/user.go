@@ -10,8 +10,9 @@ import (
 )
 
 type User struct {
-	ID                string `json:"id"`
-	Email             string `json:"email"`
+	bun.BaseModel     `bun:"table:users"`
+	ID                string `bun:",pk" json:"id"`
+	Email             string `bun:",notnull" json:"email"`
 	EncryptedPassword string `json:"-"`
 
 	UpdatedAt time.Time `bun:",default:CURRENT_TIMESTAMP" json:"updated_at"`
