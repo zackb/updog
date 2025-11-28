@@ -39,3 +39,44 @@ func (db *DB) ListPageviewsByDomainID(ctx context.Context, domainID string, star
 		Scan(ctx)
 	return pageviews, err
 }
+
+func (db *DB) RunDailyRollup(ctx context.Context) error {
+	// yesterday in UTC
+	dayStart := time.Now().UTC().AddDate(0, 0, -1)
+	dayStart = time.Date(dayStart.Year(), dayStart.Month(), dayStart.Day(), 0, 0, 0, 0, time.UTC)
+	dayEnd := dayStart.Add(24 * time.Hour)
+
+	_, err := db.Db.ExecContext(ctx, `
+        INSERT INTO daily_pageviews (
+            day,
+            domain_id,
+            country_id,
+            region_id,
+            browser_id,
+            os_id,
+            device_type_id,
+            language_id,
+            referrer_id,
+            count
+        )
+        SELECT
+            date_trunc('day', ts) AS day,
+            domain_id,
+            country_id,
+            region_id,
+            browser_id,
+            os_id,
+            device_type_id,
+            language_id,
+            referrer_id,
+            COUNT(*) AS count
+        FROM pageviews
+        WHERE ts >= ? AND ts < ?
+        GROUP BY domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id
+        ON CONFLICT (day, domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id)
+        DO UPDATE SET count = EXCLUDED.count;
+    `, dayStart, dayEnd)
+
+	return err
+
+}

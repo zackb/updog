@@ -112,10 +112,11 @@ func CreateTables(db *bun.DB) error {
 		(*pageview.Region)(nil),
 		(*pageview.Browser)(nil),
 		(*pageview.OperatingSystem)(nil),
-		(*pageview.Pageview)(nil),
 		(*pageview.DeviceType)(nil),
 		(*pageview.Language)(nil),
 		(*pageview.Referrer)(nil),
+		(*pageview.Pageview)(nil),
+		(*pageview.DailyPageview)(nil),
 	}
 
 	for _, m := range models {
@@ -159,6 +160,14 @@ func CreateIndexes(db *bun.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_pageviews_domain_ts 
          ON pageviews (domain_id, ts DESC);`,
 	)
+
+	// create index on daily_pageviews
+	_, err = db.ExecContext(
+		context.Background(),
+		`CREATE INDEX IF NOT EXISTS idx_daily_pageviews_domain_day 
+		 ON daily_pageviews (domain_id, day DESC);`,
+	)
+
 	return err
 }
 
