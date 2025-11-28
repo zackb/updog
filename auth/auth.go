@@ -105,7 +105,6 @@ func (s *Service) CreateToken(clientId string) (string, int64, error) {
 }
 
 func (s *Service) ValidateToken(t string) (*Token, error) {
-	log.Printf("validating token: %s", t)
 	if t == "" {
 		return nil, fmt.Errorf("token is empty")
 	}

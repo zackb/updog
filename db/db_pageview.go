@@ -11,7 +11,7 @@ func (db *DB) CountPageviewsByDomainID(ctx context.Context, domainID string, sta
 
 	pv := pageview.Pageview{}
 	return db.Db.NewSelect().
-		Model(pv).
+		Model(&pv).
 		Where("domain_id = ?", domainID).
 		Where("ts >= ?", start).
 		Where("ts <= ?", end).
