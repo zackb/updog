@@ -48,7 +48,7 @@ func IsDev() bool {
 }
 
 func GetHTTPPort() int {
-	return GetInt(EnvHttpPort, 8080)
+	return GetInt(EnvHttpPort, 8081)
 }
 
 func GetDsn() string {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/zackb/updog/enrichment/geo"
+	"github.com/zackb/updog/enrichment/ua"
 )
 
 type Enricher struct {
@@ -38,14 +39,10 @@ func (e *Enricher) Enrich(req *http.Request) (*Enrichment, error) {
 		res.Country = entry.Country
 		res.Region = entry.Region
 	}
-	browser, os, deviceType := parseUserAgent(req.UserAgent())
+	browser, os, deviceType := ua.ParseUserAgent(req.UserAgent())
 	res.Browser = browser
 	res.OS = os
 	res.DeviceType = deviceType
 
 	return res, nil
-}
-
-func parseUserAgent(ua string) (browser string, os string, deviceType string) {
-	return "Unknown", "Unknown", "Unknown"
 }
