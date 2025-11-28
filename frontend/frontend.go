@@ -54,7 +54,14 @@ func (f *Frontend) Routes(mux *http.ServeMux) {
 
 	mux.HandleFunc("/logout", f.logout)
 	mux.HandleFunc("/join", f.join)
+	mux.HandleFunc("/dashboard", f.dashboard)
 	mux.HandleFunc("/", f.index)
+}
+
+func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
+	if err := tmpl.ExecuteTemplate(w, "dashboard.html", nil); err != nil {
+		http.Error(w, "Failed to render analytics page", http.StatusInternalServerError)
+	}
 }
 
 func (f *Frontend) index(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,189 @@
+{{template "_header.html" .}}
+
+{{template "sidebar" .}}
+
+<!-- Main Content -->
+<main class="main-content">
+    {{template "topbar" .}}
+
+    <div class="dashboard-content">
+        <div class="welcome-section">
+            <h1>Dashboard Overview</h1>
+            <p>Here's what's happening with your projects today.</p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon view">
+                    <i class="fa-solid fa-eye"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>Total Views</h3>
+                    <p class="value">124,592</p>
+                    <span class="trend positive">
+                        <i class="fa-solid fa-arrow-up"></i> 12.5%
+                    </span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon visitors">
+                    <i class="fa-solid fa-user-group"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>Unique Visitors</h3>
+                    <p class="value">42,890</p>
+                    <span class="trend positive">
+                        <i class="fa-solid fa-arrow-up"></i> 8.2%
+                    </span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon bounce">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>Bounce Rate</h3>
+                    <p class="value">42.5%</p>
+                    <span class="trend negative">
+                        <i class="fa-solid fa-arrow-down"></i> 2.1%
+                    </span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon time">
+                    <i class="fa-solid fa-clock"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>Avg. Time</h3>
+                    <p class="value">4m 32s</p>
+                    <span class="trend positive">
+                        <i class="fa-solid fa-arrow-up"></i> 1.4%
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-section">
+            <div class="chart-container main-chart">
+                <div class="chart-header">
+                    <h2>Traffic Overview</h2>
+                    <div class="chart-actions">
+                        <button class="active">Daily</button>
+                        <button>Weekly</button>
+                        <button>Monthly</button>
+                    </div>
+                </div>
+                <div class="chart-placeholder">
+                    <!-- In a real app, a canvas or SVG chart would go here -->
+                    <div class="bar" style="height: 40%"></div>
+                    <div class="bar" style="height: 60%"></div>
+                    <div class="bar" style="height: 45%"></div>
+                    <div class="bar" style="height: 70%"></div>
+                    <div class="bar" style="height: 55%"></div>
+                    <div class="bar" style="height: 80%"></div>
+                    <div class="bar" style="height: 65%"></div>
+                    <div class="bar" style="height: 90%"></div>
+                    <div class="bar" style="height: 75%"></div>
+                    <div class="bar" style="height: 50%"></div>
+                    <div class="bar" style="height: 60%"></div>
+                    <div class="bar" style="height: 85%"></div>
+                </div>
+            </div>
+            <div class="chart-container secondary-chart">
+                <div class="chart-header">
+                    <h2>Device Usage</h2>
+                </div>
+                <div class="donut-chart-placeholder">
+                    <div class="donut-segment segment-1"></div>
+                    <div class="donut-segment segment-2"></div>
+                    <div class="donut-segment segment-3"></div>
+                    <div class="donut-center">
+                        <span>Mobile</span>
+                        <strong>65%</strong>
+                    </div>
+                </div>
+                <div class="chart-legend">
+                    <div class="legend-item">
+                        <span class="dot mobile"></span> Mobile
+                    </div>
+                    <div class="legend-item">
+                        <span class="dot desktop"></span> Desktop
+                    </div>
+                    <div class="legend-item">
+                        <span class="dot tablet"></span> Tablet
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity Table -->
+        <div class="table-section">
+            <div class="section-header">
+                <h2>Recent Activity</h2>
+                <a href="#" class="view-all">View All</a>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Page</th>
+                            <th>Visitors</th>
+                            <th>Unique</th>
+                            <th>Bounce Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <div class="page-info">
+                                    <span class="path">/home</span>
+                                    <span class="title">Homepage</span>
+                                </div>
+                            </td>
+                            <td>12,405</td>
+                            <td>8,200</td>
+                            <td>35%</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="page-info">
+                                    <span class="path">/pricing</span>
+                                    <span class="title">Pricing Page</span>
+                                </div>
+                            </td>
+                            <td>5,200</td>
+                            <td>3,100</td>
+                            <td>25%</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="page-info">
+                                    <span class="path">/blog/new-features</span>
+                                    <span class="title">Blog Post</span>
+                                </div>
+                            </td>
+                            <td>3,800</td>
+                            <td>3,500</td>
+                            <td>65%</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="page-info">
+                                    <span class="path">/contact</span>
+                                    <span class="title">Contact Us</span>
+                                </div>
+                            </td>
+                            <td>1,200</td>
+                            <td>900</td>
+                            <td>40%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+{{template "_footer.html" .}}
