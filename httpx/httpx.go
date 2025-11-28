@@ -31,17 +31,13 @@ func CheckError(w http.ResponseWriter, err error) bool {
 	if err == nil {
 		return false
 	}
-	w.WriteHeader(http.StatusInternalServerError)
 	log.Println(err, "Checking error")
+	w.WriteHeader(http.StatusInternalServerError)
 	jsn, e := json.Marshal(err)
 	if e != nil {
 		log.Println(e, "marhsalling json error")
-		return true
 	}
-	_, e = w.Write(jsn)
-	if e != nil {
-		log.Println(e, "writing error")
-	}
+	JSONError(w, string(jsn), http.StatusInternalServerError)
 	return true
 }
 

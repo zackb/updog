@@ -20,6 +20,7 @@ func NewHandler(store Storage, auth *auth.Service) *Handler {
 
 func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
+	// r.Post("/", h.handleCreateUser)
 	r.Group(func(protected chi.Router) {
 		protected.Use(middleware.AuthMiddleware(h.auth))
 		// protected.Get("/users", ...)

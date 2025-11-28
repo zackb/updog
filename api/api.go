@@ -32,13 +32,19 @@ func (a *API) Routes() http.Handler {
 
 	r.Get("/api/v1/healthz", healthCheckHandler)
 
-	r.Route("/api", func(api chi.Router) {
+	r.Route("/api/v1", func(api chi.Router) {
 		us := a.db.UserStorage()
 		ds := a.db.DomainStorage()
 		ps := a.db.PageviewStorage()
 		api.Mount("/pageviews", pageview.NewHandler(ps, a.auth).Routes())
 		api.Mount("/domains", domain.NewHandler(ds, a.auth).Routes())
 		api.Mount("/users", user.NewHandler(us, a.auth).Routes())
+
+		// auth
+		api.Post("/auth/login", a.handleLogin)
+		api.Post("/auth/logout", a.handleLogout)
+		api.Post("/auth/register", a.handleRegister)
+		api.Post("/auth/verify", a.handleVerify)
 	})
 	return r
 }
