@@ -7,7 +7,7 @@ import (
 func ParseUserAgent(ua string) (browser string, os string, deviceType string) {
 	uaParsed := useragent.Parse(ua)
 
-	browser = uaParsed.Name + " " + uaParsed.Version
+	browser = uaParsed.Name //  + " " + uaParsed.Version
 	os = uaParsed.OS
 
 	if uaParsed.Mobile {
