@@ -264,6 +264,11 @@ func (f *Frontend) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (f *Frontend) login(w http.ResponseWriter, r *http.Request) {
+
+	data := PageData{
+		Title: "Login",
+	}
+
 	if r.Method == http.MethodPost {
 		email := r.FormValue("email")
 		password := r.FormValue("password")
@@ -271,20 +276,23 @@ func (f *Frontend) login(w http.ResponseWriter, r *http.Request) {
 		// find user by email
 		user, err := f.db.UserStorage().ReadUserByEmail(r.Context(), email)
 		if err != nil {
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			data.Error = "Invalid email or password"
+			tmpl.ExecuteTemplate(w, "login.html", data)
 			return
 		}
 
 		// validate password
 		if user.EncryptedPassword == "" || !user.Validate(password) {
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			data.Error = "Invalid email or password"
+			tmpl.ExecuteTemplate(w, "login.html", data)
 			return
 		}
 
 		// user is validated, create a token
 		token, _, err := f.auth.CreateToken(user.ID)
 		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
+			data.Error = "Internal error"
+			tmpl.ExecuteTemplate(w, "login.html", data)
 			return
 		}
 
@@ -300,7 +308,7 @@ func (f *Frontend) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl.ExecuteTemplate(w, "login.html", nil)
+	tmpl.ExecuteTemplate(w, "login.html", data)
 }
 
 func (f *Frontend) join(w http.ResponseWriter, r *http.Request) {

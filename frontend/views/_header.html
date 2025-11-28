@@ -13,4 +13,10 @@
 </head>
 
 <body>
+    {{ if .Error }}
+    <div class="error-banner">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>{{.Error}}</span>
+    </div>
+    {{ end }}
     <div class="app-container">

@@ -18,4 +18,5 @@ type PageData struct {
 	Message     string
 	Domains     []*domain.Domain
 	Stats       *DashboardStats
+	Error       string
 }
