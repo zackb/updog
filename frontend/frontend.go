@@ -54,6 +54,7 @@ func (f *Frontend) Routes(mux *http.ServeMux) {
 
 	mux.HandleFunc("/logout", f.logout)
 	mux.HandleFunc("/join", f.join)
+	mux.HandleFunc("/login", f.login)
 	mux.HandleFunc("/dashboard", f.dashboard)
 	mux.HandleFunc("/", f.index)
 }
@@ -89,6 +90,46 @@ func (f *Frontend) logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func (f *Frontend) login(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		email := r.FormValue("email")
+		password := r.FormValue("password")
+
+		// find user by email
+		user, err := f.db.UserStorage().ReadUserByEmail(r.Context(), email)
+		if err != nil {
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			return
+		}
+
+		// validate password
+		if user.EncryptedPassword == "" || !user.Validate(password) {
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			return
+		}
+
+		// user is validated, create a token
+		token, _, err := f.auth.CreateToken(user.ID)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "token",
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   !env.IsDev(),
+		})
+
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+		return
+	}
+
+	tmpl.ExecuteTemplate(w, "login.html", nil)
+}
+
 func (f *Frontend) join(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		email := r.FormValue("email")
@@ -106,14 +147,28 @@ func (f *Frontend) join(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user := &user.User{
+		u := &user.User{
 			Email:             email,
 			EncryptedPassword: epass,
 		}
 
-		if err := f.db.CreateUser(r.Context(), user); err != nil {
+		if err := f.db.CreateUser(r.Context(), u); err != nil {
 			log.Printf("Failed to create user: %v", err)
 			http.Error(w, "Failed to create user", http.StatusInternalServerError)
+			return
+		}
+
+		// Auto login after signup
+		token, _, err := f.auth.CreateToken(u.ID)
+		if err == nil {
+			http.SetCookie(w, &http.Cookie{
+				Name:     "token",
+				Value:    token,
+				Path:     "/",
+				HttpOnly: true,
+				Secure:   !env.IsDev(),
+			})
+			http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 			return
 		}
 
@@ -121,7 +176,7 @@ func (f *Frontend) join(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl.ExecuteTemplate(w, "join.html", nil)
+	tmpl.ExecuteTemplate(w, "signup.html", nil)
 }
 
 func initTemplatesAndStatic() error {
