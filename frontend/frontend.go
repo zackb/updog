@@ -53,6 +53,8 @@ func (f *Frontend) Routes(mux *http.ServeMux) {
 	mux.Handle("/static/", http.StripPrefix("/static/", staticHandler))
 
 	mux.HandleFunc("/logout", f.logout)
+	mux.HandleFunc("/join", f.join)
+	mux.HandleFunc("/", f.index)
 }
 
 func (f *Frontend) index(w http.ResponseWriter, r *http.Request) {

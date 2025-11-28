@@ -9,6 +9,7 @@ import (
 	"github.com/zackb/updog/auth"
 	"github.com/zackb/updog/db"
 	"github.com/zackb/updog/enrichment"
+	"github.com/zackb/updog/frontend"
 	"github.com/zackb/updog/handler"
 	"github.com/zackb/updog/serve"
 	"github.com/zackb/updog/signal"
@@ -37,8 +38,12 @@ func main() {
 	// initialize api
 	api := api.NewAPI(store, auth)
 
+	// initialize frontend
+	frontend, err := frontend.NewFrontend(auth, store)
+
 	// create http server
 	server := serve.NewHTTPServer(func(mux *http.ServeMux) {
+		frontend.Routes(mux)
 		mux.Handle("/view", handler.Handler(store, store, enricher))
 		mux.Handle("/api/", api.Routes())
 	})
