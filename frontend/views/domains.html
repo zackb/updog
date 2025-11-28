@@ -1,62 +1,60 @@
 {{template "_header.html" .}}
 
-<div class="app-container">
-    {{template "_sidebar.html" .}}
+{{template "sidebar" .}}
 
-    <div class="main-content">
-        {{template "_topbar.html" .}}
+<div class="main-content">
+    {{template "_topbar.html" .}}
 
-        <div class="content-area">
-            <div class="page-header">
-                <h1>Domains</h1>
-                <p>Manage your analytics domains and verify ownership</p>
+    <div class="content-area">
+        <div class="page-header">
+            <h1>Domains</h1>
+            <p>Manage your analytics domains and verify ownership</p>
+        </div>
+
+        <div class="domains-grid">
+            <!-- Add Domain Card -->
+            <div class="domain-card add-domain-card">
+                <h3><i class="fa-solid fa-plus"></i> Add New Domain</h3>
+                <form action="/domains" method="POST" class="domain-form">
+                    <div class="form-group">
+                        <label for="domain-name">Domain Name</label>
+                        <input type="text" id="domain-name" name="name" placeholder="example.com" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Add Domain</button>
+                </form>
             </div>
 
-            <div class="domains-grid">
-                <!-- Add Domain Card -->
-                <div class="domain-card add-domain-card">
-                    <h3><i class="fa-solid fa-plus"></i> Add New Domain</h3>
-                    <form action="/domains" method="POST" class="domain-form">
-                        <div class="form-group">
-                            <label for="domain-name">Domain Name</label>
-                            <input type="text" id="domain-name" name="name" placeholder="example.com" required>
-                        </div>
-                        <button type="submit" class="btn-primary">Add Domain</button>
-                    </form>
+            <!-- Existing Domains -->
+            {{range .Domains}}
+            <div class="domain-card">
+                <div class="domain-header">
+                    <h3>{{.Name}}</h3>
+                    {{if .Verified}}
+                    <span class="status-badge verified"><i class="fa-solid fa-check-circle"></i> Verified</span>
+                    {{else}}
+                    <span class="status-badge unverified"><i class="fa-solid fa-exclamation-circle"></i>
+                        Unverified</span>
+                    {{end}}
                 </div>
 
-                <!-- Existing Domains -->
-                {{range .Domains}}
-                <div class="domain-card">
-                    <div class="domain-header">
-                        <h3>{{.Name}}</h3>
-                        {{if .Verified}}
-                        <span class="status-badge verified"><i class="fa-solid fa-check-circle"></i> Verified</span>
-                        {{else}}
-                        <span class="status-badge unverified"><i class="fa-solid fa-exclamation-circle"></i>
-                            Unverified</span>
-                        {{end}}
-                    </div>
-
-                    {{if not .Verified}}
-                    <div class="verification-instructions">
-                        <p><strong>Verification Required</strong></p>
-                        <p>Create a file at:</p>
-                        <code>https://{{.Name}}/updog_{{.VerificationToken}}.txt</code>
-                        <p>The file can be empty or contain any text.</p>
-                        <form action="/domains/verify" method="POST" style="margin-top: 1rem;">
-                            <input type="hidden" name="domain_id" value="{{.ID}}">
-                            <button type="submit" class="btn-secondary">Verify Now</button>
-                        </form>
-                    </div>
-                    {{else}}
-                    <div class="domain-stats">
-                        <p><i class="fa-solid fa-chart-line"></i> Domain is verified and collecting analytics</p>
-                    </div>
-                    {{end}}
+                {{if not .Verified}}
+                <div class="verification-instructions">
+                    <p><strong>Verification Required</strong></p>
+                    <p>Create a file at:</p>
+                    <code>https://{{.Name}}/updog_{{.VerificationToken}}.txt</code>
+                    <p>The file can be empty or contain any text.</p>
+                    <form action="/domains/verify" method="POST" style="margin-top: 1rem;">
+                        <input type="hidden" name="domain_id" value="{{.ID}}">
+                        <button type="submit" class="btn-secondary">Verify Now</button>
+                    </form>
+                </div>
+                {{else}}
+                <div class="domain-stats">
+                    <p><i class="fa-solid fa-chart-line"></i> Domain is verified and collecting analytics</p>
                 </div>
                 {{end}}
             </div>
+            {{end}}
         </div>
     </div>
 </div>
