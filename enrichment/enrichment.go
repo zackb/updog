@@ -2,6 +2,7 @@ package enrichment
 
 import (
 	"log"
+	"net"
 	"net/http"
 
 	"github.com/zackb/updog/enrichment/geo"
@@ -32,7 +33,13 @@ func (e *Enricher) Enrich(req *http.Request) (*Enrichment, error) {
 
 	res := &Enrichment{}
 
-	entry, err := e.g.Lookup(req.RemoteAddr)
+	ip := req.RemoteAddr
+
+	if ip == "" || geo.IsLoopback(ip) {
+		ip = req.Header.Get("X-Forwarded-For")
+	}
+
+	entry, err := e.g.Lookup(ip)
 	if err != nil {
 		log.Printf("geo lookup error: %v", err)
 	} else {

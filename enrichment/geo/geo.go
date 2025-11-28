@@ -70,3 +70,35 @@ func fileExists(filename string) error {
 	}
 	return nil
 }
+
+var internal = []*net.IPNet{
+	// RFC 1122, Section 3.2.1.3
+	{IP: net.IPv4(127, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
+
+	// RFC 3927
+	{IP: net.IPv4(169, 254, 0, 0), Mask: net.CIDRMask(16, 32)},
+
+	// RFC 1918
+	{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
+	{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},
+	{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)},
+}
+
+func IsLoopback(ip string) bool {
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		return false
+	}
+	return IsLoopbackIP(parsedIP)
+}
+
+func IsLoopbackIP(ip net.IP) bool {
+
+	for _, n := range internal {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+
+	return false
+}
