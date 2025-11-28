@@ -16,6 +16,7 @@ require (
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/oschwald/maxminddb-golang v1.13.0 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/uptrace/bun v1.2.16 // indirect
@@ -29,6 +30,7 @@ require (
 require (
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.32
+	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/uptrace/bun/dialect/pgdialect v1.2.16
 	golang.org/x/crypto v0.45.0

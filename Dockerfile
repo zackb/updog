@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine AS backend-builder
+FROM golang:1.25-alpine AS backend-builder
 
 # Install build dependencies
 RUN apk add --no-cache build-base musl-dev
@@ -31,6 +31,9 @@ COPY --from=backend-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy the static binary
 COPY --from=backend-builder /build/updog /updog/updog
+
+# Copy maxmind data
+COPY --from=backend-builder /build/data/maxmind/*.mmdb /updog/data/maxmind
 
 # Create tmp directory for SQLite
 COPY --from=backend-builder /tmp /tmp

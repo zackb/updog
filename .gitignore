@@ -2,6 +2,7 @@
 .vscode
 .idea
 /updog
+**/*.mmdb
 jwks.json
 db.db
 .buildx-cache

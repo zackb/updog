@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	EnvHttpPort = "HTTP_PORT"
-	EnvDsn      = "DATABASE_URL"
+	EnvHttpPort      = "HTTP_PORT"
+	EnvDsn           = "DATABASE_URL"
+	EnvMaxmindCityDb = "MAXMIND_CITY_DB"
 )
 
 var ecache = map[string]string{}
@@ -52,4 +53,8 @@ func GetHTTPPort() int {
 
 func GetDsn() string {
 	return GetString(EnvDsn, "")
+}
+
+func GetMaxmindCityDb() string {
+	return GetString(EnvMaxmindCityDb, "data/maxmind/GeoLite2-City.mmdb")
 }
