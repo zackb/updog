@@ -42,7 +42,7 @@
                     <div class="verification-instructions">
                         <p><strong>Verification Required</strong></p>
                         <p>Create a file at:</p>
-                        <code>http://{{.Name}}/updog_{{.VerificationToken}}.txt</code>
+                        <code>https://{{.Name}}/updog_{{.VerificationToken}}.txt</code>
                         <p>The file can be empty or contain any text.</p>
                         <form action="/domains/verify" method="POST" style="margin-top: 1rem;">
                             <input type="hidden" name="domain_id" value="{{.ID}}">

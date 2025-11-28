@@ -14,6 +14,7 @@ import (
 	"github.com/zackb/updog/db"
 	"github.com/zackb/updog/domain"
 	"github.com/zackb/updog/env"
+	"github.com/zackb/updog/id"
 	"github.com/zackb/updog/user"
 )
 
@@ -154,9 +155,11 @@ func (f *Frontend) domains(w http.ResponseWriter, r *http.Request) {
 		}
 
 		domain := &domain.Domain{
-			Name:     name,
-			UserID:   user.ID,
-			Verified: false,
+			ID:                id.NewID(),
+			Name:              name,
+			UserID:            user.ID,
+			VerificationToken: id.NewID(),
+			Verified:          false,
 		}
 
 		_, err := f.db.DomainStorage().CreateDomain(r.Context(), domain)
@@ -209,7 +212,7 @@ func (f *Frontend) verifyDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// verify ownership by checking for the file
-	verificationURL := "http://" + d.Name + "/updog_" + d.VerificationToken + ".txt"
+	verificationURL := "https://" + d.Name + "/updog_" + d.VerificationToken + ".txt"
 	resp, err := http.Get(verificationURL)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		log.Printf("Verification failed for %s: %v", d.Name, err)
@@ -217,22 +220,6 @@ func (f *Frontend) verifyDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
-
-	// read body
-	buf := make([]byte, 512)
-	n, err := resp.Body.Read(buf)
-	if err != nil && err.Error() != "EOF" {
-		log.Printf("Failed to read verification file: %v", err)
-		http.Error(w, "Failed to read verification file", http.StatusInternalServerError)
-		return
-	}
-
-	bodyContent := string(buf[:n])
-	if bodyContent != d.VerificationToken {
-		log.Printf("Verification token mismatch for %s", d.Name)
-		http.Error(w, "Verification token mismatch. Expected content: "+d.VerificationToken, http.StatusBadRequest)
-		return
-	}
 
 	// update domain as verified
 	d.Verified = true
@@ -334,6 +321,7 @@ func (f *Frontend) join(w http.ResponseWriter, r *http.Request) {
 		}
 
 		u := &user.User{
+			ID:                id.NewID(),
 			Email:             email,
 			EncryptedPassword: epass,
 		}
