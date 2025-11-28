@@ -57,7 +57,8 @@ func (db *DB) RunDailyRollup(ctx context.Context) error {
             device_type_id,
             language_id,
             referrer_id,
-            count
+            count,
+			unique_visitors
         )
         SELECT
             date_trunc('day', ts) AS day,
@@ -70,11 +71,12 @@ func (db *DB) RunDailyRollup(ctx context.Context) error {
             language_id,
             referrer_id,
             COUNT(*) AS count
+			COUNT(DISTINCT visitor_id) AS unique_visitors
         FROM pageviews
         WHERE ts >= ? AND ts < ?
         GROUP BY domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id
         ON CONFLICT (day, domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id)
-        DO UPDATE SET count = EXCLUDED.count;
+        DO UPDATE SET count = EXCLUDED.count SET unique_visitors = EXCLUDED.unique_visitors;
     `, dayStart, dayEnd)
 
 	return err

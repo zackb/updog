@@ -78,6 +78,7 @@ type Pageview struct {
 	DeviceTypeID int64  `bun:"device_type_id"`
 	LanguageID   int64  `bun:"language_id"`
 	ReferrerID   int64  `bun:"referrer_id"`
+	VisitorID    int64  `bun:"visitor_id,notnull"`
 
 	// relations
 	Domain     *domain.Domain   `bun:"rel:belongs-to,join:domain_id=id"`
@@ -103,7 +104,8 @@ type DailyPageview struct {
 	LanguageID   int64     `bun:"language_id"`
 	ReferrerID   int64     `bun:"referrer_id"`
 
-	Count int
+	Count          int64 `bun:"count,notnull"`
+	UniqueVisitors int64 `bun:"unique_visitors"`
 
 	// relations
 	Domain     *domain.Domain   `bun:"rel:belongs-to,join:domain_id=id"`

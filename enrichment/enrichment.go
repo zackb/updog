@@ -1,6 +1,7 @@
 package enrichment
 
 import (
+	"hash/crc32"
 	"log"
 	"net"
 	"net/http"
@@ -20,6 +21,7 @@ type Enrichment struct {
 	Browser    string
 	OS         string
 	DeviceType string
+	VisitorID  int
 }
 
 func NewEnricher() (*Enricher, error) {
@@ -35,6 +37,7 @@ func (e *Enricher) Enrich(req *http.Request) (*Enrichment, error) {
 	res := &Enrichment{}
 
 	ip := getClientIP(req)
+	userAgent := req.UserAgent()
 
 	entry, err := e.g.Lookup(ip)
 	if err != nil {
@@ -43,10 +46,11 @@ func (e *Enricher) Enrich(req *http.Request) (*Enrichment, error) {
 		res.Country = entry.Country
 		res.Region = entry.Region
 	}
-	browser, os, deviceType := ua.ParseUserAgent(req.UserAgent())
+	browser, os, deviceType := ua.ParseUserAgent(userAgent)
 	res.Browser = browser
 	res.OS = os
 	res.DeviceType = deviceType
+	res.VisitorID = int(crc32.ChecksumIEEE([]byte(ip + userAgent)))
 
 	return res, nil
 }
