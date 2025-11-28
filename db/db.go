@@ -166,6 +166,11 @@ func CreateIndexes(db *bun.DB) error {
 //		panic(err)
 //	}
 func GetOrCreateDimension[T any](ctx context.Context, d *DB, model *T, column string, value string) error {
+
+	if column == "" {
+		return fmt.Errorf("column name is required")
+	}
+
 	// try to fetch existing row
 	err := d.Db.NewSelect().
 		Model(model).
