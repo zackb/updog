@@ -52,6 +52,9 @@ jwk-key-dev:
 test:
 	go test ./...
 
+send-test:
+	curl -XPOST -i --data-binary '{"domain": "foo.com", "ref": "google.com", "path": "/hello"}' localhost:8080/view
+
 updatedeps:
 	go list -m -u all
 
