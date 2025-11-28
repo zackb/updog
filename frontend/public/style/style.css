@@ -51,6 +51,11 @@ body {
     margin-bottom: 2.5rem;
 }
 
+.logo img {
+    height: 32px;
+    width: auto;
+}
+
 .logo i {
     color: var(--accent-primary);
 }
