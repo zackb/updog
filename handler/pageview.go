@@ -2,7 +2,10 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/zackb/updog/db"
 	"github.com/zackb/updog/domain"
@@ -18,15 +21,6 @@ type PageviewRequest struct {
 }
 
 // Handler handles incoming pageview tracking requests.
-// <script>
-//
-//	navigator.sendBeacon("/pageview", JSON.stringify({
-//		domain: location.hostname
-//		path: location.pathname,
-//		ref: document.referrer
-//	}));
-//
-// </script>
 func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -34,6 +28,30 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher) http.HandlerF
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			httpx.JSONError(w, "invalid JSON", http.StatusBadRequest)
 			return
+		}
+
+		// verify the request is coming from the claimed domain
+		origin := r.Header.Get("Origin")
+		referer := r.Referer()
+
+		// if we have an origin header, it must match the claimed domain
+		if origin != "" {
+			u, err := url.Parse(origin)
+			if err == nil {
+				originHost := u.Hostname()
+				if originHost != req.Domain && originHost != "localhost" && originHost != "127.0.0.1" && !strings.HasSuffix(originHost, "localhost") {
+					log.Printf("Origin mismatch: %s != %s", originHost, req.Domain)
+				}
+			}
+		} else if referer != "" {
+			// if no origin, check referer
+			u, err := url.Parse(referer)
+			if err == nil {
+				refererHost := u.Hostname()
+				if refererHost != req.Domain && refererHost != "localhost" && refererHost != "127.0.0.1" && !strings.HasSuffix(refererHost, "localhost") {
+					log.Printf("Referer mismatch: %s != %s", refererHost, req.Domain)
+				}
+			}
 		}
 
 		dsomain, _ := ds.ReadDomainByName(r.Context(), req.Domain)

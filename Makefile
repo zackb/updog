@@ -8,8 +8,11 @@ run: build
 run-dev: build
 	DEV=1 ./$(OUT)
 
-build:
+build: minify
 	go build -v -o $(OUT) ./cmd/$(OUT)/$(OUT).go
+
+minify:
+	npx -y esbuild frontend/public/script/tracker.js --minify --outfile=frontend/public/script/ua.js
 
 build-static:
 	CGO_ENABLED=0 GOOS=linux go build $(TAGS) -a -installsuffix cgo -ldflags '-extldflags "-static"' -o $(OUT) -v ./cmd/$(OUT)/$(OUT).go

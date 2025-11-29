@@ -132,6 +132,7 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 		Title: "Dashboard",
 		User:  user,
 		Stats: stats,
+		Slug:  "dashboard",
 	}
 
 	if err := tmpl.ExecuteTemplate(w, "dashboard.html", data); err != nil {
@@ -149,6 +150,7 @@ func (f *Frontend) realtime(w http.ResponseWriter, r *http.Request) {
 	data := PageData{
 		Title: "Real-time",
 		User:  user,
+		Slug:  "realtime",
 	}
 
 	if err := tmpl.ExecuteTemplate(w, "realtime.html", data); err != nil {
@@ -203,6 +205,7 @@ func (f *Frontend) domains(w http.ResponseWriter, r *http.Request) {
 		Title:   "Domains",
 		User:    user,
 		Domains: domains,
+		Slug:    "domains",
 	}
 
 	if err := tmpl.ExecuteTemplate(w, "domains.html", data); err != nil {

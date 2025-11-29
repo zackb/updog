@@ -6,15 +6,15 @@
         <span>Updog</span>
     </div>
     <nav class="nav-menu">
-        <a href="/dashboard" class="nav-item active">
+        <a href="/dashboard" class='nav-item {{if eq .Slug "dashboard"}}active{{end}}'>
             <i class="fa-solid fa-house"></i>
             <span>Dashboard</span>
         </a>
-        <a href="/realtime" class="nav-item">
+        <a href="/realtime" class='nav-item {{if eq .Slug "realtime"}}active{{end}}'>
             <i class="fa-solid fa-dragon"></i>
             <span>Real-time</span>
         </a>
-        <a href="/domains" class="nav-item">
+        <a href="/domains" class='nav-item {{if eq .Slug "domains"}}active{{end}}'>
             <i class="fa-solid fa-globe"></i>
             <span>Domains</span>
         </a>
