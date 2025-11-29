@@ -169,6 +169,7 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 
 	if err := tmpl.ExecuteTemplate(w, "dashboard.html", data); err != nil {
 		http.Error(w, "Failed to render analytics page", http.StatusInternalServerError)
+		log.Printf("Template execution error: %v", err)
 	}
 }
 
