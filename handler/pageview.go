@@ -70,7 +70,7 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher) http.HandlerF
 		_ = db.GetOrCreateDimension(r.Context(), d, country, "name", country.Name)
 
 		region := &pageview.Region{Name: entry.Region, CountryID: country.ID}
-		_ = db.GetOrCreateDimension(r.Context(), d, region, "name", region.Name)
+		_ = db.GetOrCreateRegion(r.Context(), d, region)
 
 		browser := &pageview.Browser{Name: entry.Browser}
 		_ = db.GetOrCreateDimension(r.Context(), d, browser, "name", browser.Name)

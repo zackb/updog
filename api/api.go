@@ -36,7 +36,7 @@ func (a *API) Routes() http.Handler {
 		us := a.db.UserStorage()
 		ds := a.db.DomainStorage()
 		ps := a.db.PageviewStorage()
-		api.Mount("/pageviews", pageview.NewHandler(ps, a.auth).Routes())
+		api.Mount("/pageviews", pageview.NewHandler(ps, ds, a.auth).Routes())
 		api.Mount("/domains", domain.NewHandler(ds, a.auth).Routes())
 		api.Mount("/users", user.NewHandler(us, a.auth).Routes())
 

@@ -267,9 +267,20 @@ func (f *Frontend) verifyDomain(w http.ResponseWriter, r *http.Request) {
 
 	// verify ownership by checking for the file
 	verificationURL := "https://" + d.Name + "/updog_" + d.VerificationToken + ".txt"
-	resp, err := http.Get(verificationURL)
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", verificationURL, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Set a realistic User-Agent and Accept header
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; MyApp/1.0)")
+	req.Header.Set("Accept", "text/plain")
+
+	resp, err := client.Do(req)
+	// resp, err := http.Get(verificationURL)
 	if err != nil || resp.StatusCode != http.StatusOK {
-		log.Printf("Verification failed for %s: %v", d.Name, err)
+		log.Printf("Verification failed for %s %d: %v", d.Name, resp.StatusCode, err)
 		http.Error(w, "Verification failed. Please ensure the file exists at: "+verificationURL, http.StatusBadRequest)
 		return
 	}

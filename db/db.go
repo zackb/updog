@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -168,6 +169,18 @@ func CreateIndexes(db *bun.DB) error {
 		 ON daily_pageviews (domain_id, day DESC);`,
 	)
 
+	// unique on region, country_id
+	if _, err := db.NewCreateIndex().
+		Model((*pageview.Region)(nil)).
+		Index("ux_regions_country_id_name").
+		Unique().
+		Column("country_id").
+		Column("name").
+		IfNotExists().
+		Exec(context.Background()); err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -208,6 +221,52 @@ func GetOrCreateDimension[T any](ctx context.Context, d *DB, model *T, column st
 		Model(model).
 		Where(column+" = ?", value).
 		Scan(ctx)
+}
+
+// GetOrCreateRegion tries to get a Region by countryID and name, and creates it if not found.
+// This is a one-off because Region has a composite unique key.
+func GetOrCreateRegion(
+	ctx context.Context,
+	d *DB,
+	region *pageview.Region,
+) error {
+
+	// fetch first
+	err := d.Db.NewSelect().
+		Model(region).
+		Where("country_id = ? AND name = ?", region.CountryID, region.Name).
+		Scan(ctx)
+	if err == nil {
+		// found an existing region
+		return nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		// real error
+		return err
+	}
+
+	// not found try to insert
+	_, err = d.Db.NewInsert().
+		Model(region).
+		On("CONFLICT(country_id, name) DO NOTHING").
+		Returning("*").
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+
+	// if the insert didn't populate ID (conflict), fetch existing row
+	if region.ID == 0 {
+		err = d.Db.NewSelect().
+			Model(region).
+			Where("country_id = ? AND name = ?", region.CountryID, region.Name).
+			Scan(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (d *DB) Close() error {
