@@ -80,6 +80,7 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher) http.HandlerF
 			DeviceTypeID: deviceType.ID,
 			LanguageID:   language.ID,
 			ReferrerID:   referrer.ID,
+			VisitorID:    entry.VisitorID,
 		}
 
 		// TODO: queue and model this better

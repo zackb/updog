@@ -1,0 +1,71 @@
+{{template "_header.html" .}}
+
+{{template "sidebar" .}}
+
+<!-- Main Content -->
+<main class="main-content">
+    {{template "topbar" .}}
+
+    <div class="realtime-content">
+        <div class="page-header">
+            <h1>Real-time Pageviews</h1>
+            <p>Live view of recent pageviews across your domains</p>
+        </div>
+
+        <!-- Real-time Table -->
+        <div class="table-section">
+            <div class="section-header">
+                <h2>Recent Pageviews</h2>
+                <div class="realtime-controls">
+                    <button id="refresh-btn" class="btn-secondary">
+                        <i class="fa-solid fa-rotate"></i> Refresh
+                    </button>
+                    <span class="status-indicator">
+                        <span class="status-dot"></span>
+                        <span id="status-text">Loading...</span>
+                    </span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table id="realtime-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Path</th>
+                            <th>Country</th>
+                            <th>Browser</th>
+                            <th>OS</th>
+                            <th>Device</th>
+                            <th>Referrer</th>
+                        </tr>
+                    </thead>
+                    <tbody id="realtime-tbody">
+                        <tr>
+                            <td colspan="7" class="loading-cell">
+                                <i class="fa-solid fa-spinner fa-spin"></i> Loading pageviews...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/static/script/script.js"></script>
+<script>
+    // Initialize real-time page
+    document.addEventListener('DOMContentLoaded', function () {
+        loadRealtimePageviews();
+
+        // Refresh button
+        document.getElementById('refresh-btn').addEventListener('click', function () {
+            loadRealtimePageviews();
+        });
+
+        // Auto-refresh every 10 seconds
+        setInterval(loadRealtimePageviews, 10000);
+    });
+</script>
+
+{{template "_footer.html" .}}

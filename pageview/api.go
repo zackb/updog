@@ -29,7 +29,7 @@ func (h *Handler) Routes() chi.Router {
 
 	r.Group(func(protected chi.Router) {
 		// protected.Use(middleware.AuthMiddleware(h.auth))
-		protected.Get("/auth/", h.handleListPageviews)
+		protected.Get("/", h.handleListPageviews)
 	})
 
 	return r

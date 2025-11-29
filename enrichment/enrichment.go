@@ -21,7 +21,7 @@ type Enrichment struct {
 	Browser    string
 	OS         string
 	DeviceType string
-	VisitorID  int
+	VisitorID  int64
 }
 
 func NewEnricher() (*Enricher, error) {
@@ -50,7 +50,7 @@ func (e *Enricher) Enrich(req *http.Request) (*Enrichment, error) {
 	res.Browser = browser
 	res.OS = os
 	res.DeviceType = deviceType
-	res.VisitorID = int(crc32.ChecksumIEEE([]byte(ip + userAgent)))
+	res.VisitorID = int64(crc32.ChecksumIEEE([]byte(ip + userAgent)))
 
 	return res, nil
 }

@@ -819,3 +819,77 @@ tr:last-child td {
 .auth-footer a:hover {
     text-decoration: underline;
 }
+
+/* Real-time Page Styles */
+.realtime-content {
+    width: 100%;
+}
+
+.realtime-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--accent-secondary);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.loading-cell {
+    text-align: center;
+    padding: 2rem !important;
+    color: var(--text-secondary);
+}
+
+.loading-cell i {
+    margin-right: 0.5rem;
+}
+
+.empty-cell {
+    text-align: center;
+    padding: 2rem !important;
+    color: var(--text-secondary);
+}
+
+.time-cell {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.path-cell {
+    font-family: monospace;
+    color: var(--accent-primary);
+}
+
+.referrer-cell {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.referrer-cell.direct {
+    font-style: italic;
+}

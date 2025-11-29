@@ -60,6 +60,7 @@ func (f *Frontend) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/join", f.join)
 	mux.HandleFunc("/login", f.login)
 	mux.HandleFunc("/dashboard", f.authMiddleware(f.dashboard))
+	mux.HandleFunc("/realtime", f.authMiddleware(f.realtime))
 	mux.HandleFunc("/domains", f.authMiddleware(f.domains))
 	mux.HandleFunc("/domains/verify", f.authMiddleware(f.verifyDomain))
 	mux.HandleFunc("/", f.index)
@@ -135,6 +136,23 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 
 	if err := tmpl.ExecuteTemplate(w, "dashboard.html", data); err != nil {
 		http.Error(w, "Failed to render analytics page", http.StatusInternalServerError)
+	}
+}
+
+func (f *Frontend) realtime(w http.ResponseWriter, r *http.Request) {
+	user := f.userFromRequest(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	data := PageData{
+		Title: "Real-time",
+		User:  user,
+	}
+
+	if err := tmpl.ExecuteTemplate(w, "realtime.html", data); err != nil {
+		http.Error(w, "Failed to render realtime page", http.StatusInternalServerError)
 	}
 }
 
