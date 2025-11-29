@@ -1,7 +1,9 @@
 package pageview
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -33,6 +35,9 @@ func (h *Handler) Routes() chi.Router {
 	r.Group(func(protected chi.Router) {
 		protected.Use(middleware.AuthMiddleware(h.auth))
 		protected.Get("/", h.handleListPageviews)
+		protected.Get("/hourly", h.handleGetHourlyStats)
+		protected.Get("/daily", h.handleGetDailyStats)
+		protected.Get("/monthly", h.handleGetMonthlyStats)
 	})
 
 	return r
@@ -66,16 +71,110 @@ func (h *Handler) handleListPageviews(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// TOOD: get domains for user this is copy/pasted from dashboard handler
-	// get user's domains
-	domains, err := h.domainStore.ListDomainsByUser(r.Context(), userID)
+	domainID, err := h.resolveDomainID(r, userID)
+
 	if err != nil {
-		log.Printf("Failed to list domains: %v", err)
-		http.Error(w, "Failed to load dashboard", http.StatusInternalServerError)
+		log.Printf("Failed to resolve domain: %v", err)
+		httpx.JSONError(w, "Failed to resolve domain", http.StatusInternalServerError)
 		return
 	}
 
-	// get selected domain - first verified domain, or first domain, or nil
+	pvs, err := h.store.ListPageviewsByDomainID(r.Context(), domainID, from, to, 1000, 0)
+	if err != nil {
+		log.Println("Error reading pageviews:", err)
+		httpx.JSONError(w, "Error reading pageviews", http.StatusInternalServerError)
+		return
+	}
+	err = json.NewEncoder(w).Encode(pvs)
+	httpx.CheckError(w, err)
+}
+
+func (h *Handler) handleGetHourlyStats(w http.ResponseWriter, r *http.Request) {
+	h.handleGetStats(w, r, h.store.GetHourlyStats)
+}
+
+func (h *Handler) handleGetDailyStats(w http.ResponseWriter, r *http.Request) {
+	h.handleGetStats(w, r, h.store.GetDailyStats)
+}
+
+func (h *Handler) handleGetMonthlyStats(w http.ResponseWriter, r *http.Request) {
+	h.handleGetStats(w, r, h.store.GetMonthlyStats)
+}
+
+func (h *Handler) handleGetStats(w http.ResponseWriter, r *http.Request, statsFunc func(context.Context, string, time.Time, time.Time) ([]*AggregatedPoint, error)) {
+	userID := httpx.UserIDFromRequest(r)
+	if userID == "" {
+		httpx.JSONError(w, "Bad state", http.StatusInternalServerError)
+		return
+	}
+
+	from, to, err := h.parseTimeParams(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	domainID, err := h.resolveDomainID(r, userID)
+	if err != nil {
+		log.Printf("Failed to resolve domain: %v", err)
+		http.Error(w, "Failed to resolve domain", http.StatusInternalServerError)
+		return
+	}
+	if domainID == "" {
+		http.Error(w, "No domain found", http.StatusNotFound)
+		return
+	}
+
+	stats, err := statsFunc(r.Context(), domainID, from, to)
+	if err != nil {
+		log.Println("Error reading stats:", err)
+		httpx.JSONError(w, "Error reading stats", http.StatusInternalServerError)
+		return
+	}
+	err = json.NewEncoder(w).Encode(stats)
+	httpx.CheckError(w, err)
+}
+
+func (h *Handler) parseTimeParams(r *http.Request) (time.Time, time.Time, error) {
+	from := time.Now().AddDate(0, 0, -7)
+	to := time.Now()
+	var err error
+
+	f := r.URL.Query().Get("from")
+	if f != "" {
+		from, err = httpx.ParseTimeParam(f)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("Invalid 'from' date: %v", err)
+		}
+	}
+	t := r.URL.Query().Get("to")
+	if t != "" {
+		to, err = httpx.ParseTimeParam(t)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("Invalid 'to' date: %v", err)
+		}
+	}
+	return from, to, nil
+}
+
+func (h *Handler) resolveDomainID(r *http.Request, userID string) (string, error) {
+	domains, err := h.domainStore.ListDomainsByUser(r.Context(), userID)
+	if err != nil {
+		return "", err
+	}
+
+	requestedDomainID := r.URL.Query().Get("domain_id")
+	if requestedDomainID != "" {
+		for _, d := range domains {
+			if d.ID == requestedDomainID {
+				return d.ID, nil
+			}
+		}
+		// user requested a domain they don't own or doesn't exist
+		return "", nil
+	}
+
+	// default logic
 	var selectedDomain *domain.Domain
 	for _, d := range domains {
 		if d.Verified {
@@ -88,12 +187,9 @@ func (h *Handler) handleListPageviews(w http.ResponseWriter, r *http.Request) {
 		selectedDomain = domains[0]
 	}
 
-	pvs, err := h.store.ListPageviewsByDomainID(r.Context(), selectedDomain.ID, from, to, 1000, 0)
-	if err != nil {
-		log.Println("Error reading pageviews:", err)
-		httpx.JSONError(w, "Error reading pageviews", http.StatusInternalServerError)
-		return
+	if selectedDomain != nil {
+		return selectedDomain.ID, nil
 	}
-	err = json.NewEncoder(w).Encode(pvs)
-	httpx.CheckError(w, err)
+
+	return "", nil
 }

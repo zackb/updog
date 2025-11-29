@@ -13,4 +13,8 @@ type Storage interface {
 	GetTopPages(ctx context.Context, domainID string, start, end time.Time, limit int) ([]*PageStats, error)
 	GetDeviceUsage(ctx context.Context, domainID string, start, end time.Time) ([]*DeviceStats, error)
 	RunDailyRollup(ctx context.Context) error
+
+	GetHourlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*AggregatedPoint, error)
+	GetDailyStats(ctx context.Context, domainID string, start, end time.Time) ([]*AggregatedPoint, error)
+	GetMonthlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*AggregatedPoint, error)
 }

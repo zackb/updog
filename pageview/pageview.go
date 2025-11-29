@@ -136,3 +136,9 @@ type AggregatedStats struct {
 	UniqueVisitors int64
 	BounceRate     float64
 }
+
+type AggregatedPoint struct {
+	Time           time.Time `bun:"time"`
+	Count          int64     `bun:"count"`
+	UniqueVisitors int64     `bun:"unique_visitors"`
+}

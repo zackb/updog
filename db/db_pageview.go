@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/zackb/updog/pageview"
@@ -74,6 +75,7 @@ func (db *DB) GetAggregatedStats(ctx context.Context, domainID string, start, en
 	return stats, nil
 }
 
+// TODO: remove this in favor of Get*Stats
 func (db *DB) GetGraphData(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.DailyPageview, error) {
 	// TODO: this should use rollups
 	var results []*pageview.DailyPageview
@@ -187,4 +189,120 @@ func (db *DB) RunDailyRollup(ctx context.Context) error {
 
 	return err
 
+}
+
+func (db *DB) GetHourlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
+	var stats []*pageview.AggregatedPoint
+	timeExpr := db.dateTrunc("hour", "ts")
+
+	err := db.Db.NewSelect().
+		Model((*pageview.Pageview)(nil)).
+		ColumnExpr(timeExpr+" as time").
+		ColumnExpr("count(*) as count").
+		ColumnExpr("count(distinct visitor_id) as unique_visitors").
+		Where("domain_id = ?", domainID).
+		Where("ts >= ?", start).
+		Where("ts <= ?", end).
+		GroupExpr("time").
+		OrderExpr("time ASC").
+		Scan(ctx, &stats)
+	return stats, err
+}
+
+func (db *DB) GetDailyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
+	var stats []*pageview.AggregatedPoint
+
+	// cutoff is the start of the current day in UTC
+	now := time.Now().UTC()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	// query daily_pageviews for days strictly before todayStart
+	if start.Before(todayStart) {
+		var historicStats []*pageview.AggregatedPoint
+		// ensure we don't query beyond end if end is also before todayStart
+		historicEnd := end
+		if historicEnd.After(todayStart) {
+			historicEnd = todayStart.Add(-time.Nanosecond) // just before today
+		}
+
+		// for daily_pageviews, 'day' is already truncated
+		err := db.Db.NewSelect().
+			Model((*pageview.DailyPageview)(nil)).
+			ColumnExpr("day as time").
+			ColumnExpr("sum(count) as count").
+			ColumnExpr("sum(unique_visitors) as unique_visitors").
+			Where("domain_id = ?", domainID).
+			Where("day >= ?", start).
+			Where("day <= ?", historicEnd).
+			GroupExpr("day").
+			OrderExpr("day ASC").
+			Scan(ctx, &historicStats)
+		if err != nil {
+			return nil, err
+		}
+		stats = append(stats, historicStats...)
+	}
+
+	// query pageviews for today and onwards
+	if end.After(todayStart) || end.Equal(todayStart) {
+		var liveStats []*pageview.AggregatedPoint
+		// ensure we start from todayStart at minimum
+		liveStart := start
+		if liveStart.Before(todayStart) {
+			liveStart = todayStart
+		}
+
+		timeExpr := db.dateTrunc("day", "ts")
+
+		err := db.Db.NewSelect().
+			Model((*pageview.Pageview)(nil)).
+			ColumnExpr(timeExpr+" as time").
+			ColumnExpr("count(*) as count").
+			ColumnExpr("count(distinct visitor_id) as unique_visitors").
+			Where("domain_id = ?", domainID).
+			Where("ts >= ?", liveStart).
+			Where("ts <= ?", end).
+			GroupExpr("time").
+			OrderExpr("time ASC").
+			Scan(ctx, &liveStats)
+		if err != nil {
+			return nil, err
+		}
+		stats = append(stats, liveStats...)
+	}
+
+	return stats, nil
+}
+
+func (db *DB) GetMonthlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
+	var stats []*pageview.AggregatedPoint
+	timeExpr := db.dateTrunc("month", "ts")
+
+	err := db.Db.NewSelect().
+		Model((*pageview.Pageview)(nil)).
+		ColumnExpr(timeExpr+" as time").
+		ColumnExpr("count(*) as count").
+		ColumnExpr("count(distinct visitor_id) as unique_visitors").
+		Where("domain_id = ?", domainID).
+		Where("ts >= ?", start).
+		Where("ts <= ?", end).
+		GroupExpr("time").
+		OrderExpr("time ASC").
+		Scan(ctx, &stats)
+	return stats, err
+}
+
+func (db *DB) dateTrunc(unit string, col string) string {
+	if db.Db.Dialect().Name().String() == "sqlite" {
+		switch unit {
+		case "hour":
+			return fmt.Sprintf("strftime('%%Y-%%m-%%d %%H:00:00', %s)", col)
+		case "day":
+			return fmt.Sprintf("date(%s)", col)
+		case "month":
+			return fmt.Sprintf("strftime('%%Y-%%m-01 00:00:00', %s)", col)
+		}
+	}
+	// Postgres
+	return fmt.Sprintf("date_trunc('%s', %s)", unit, col)
 }
