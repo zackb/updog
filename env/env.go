@@ -10,6 +10,8 @@ const (
 	EnvHttpPort      = "HTTP_PORT"
 	EnvDsn           = "DATABASE_URL"
 	EnvMaxmindCityDb = "MAXMIND_CITY_DB"
+	EnvTLSCert       = "TLS_CERT_PATH"
+	EnvTLSKey        = "TLS_KEY_PATH"
 )
 
 var ecache = map[string]string{}
@@ -57,4 +59,12 @@ func GetDsn() string {
 
 func GetMaxmindCityDb() string {
 	return GetString(EnvMaxmindCityDb, "data/maxmind/GeoLite2-City.mmdb")
+}
+
+func GetTLSCert() string {
+	return GetString(EnvTLSCert, "")
+}
+
+func GetTLSKey() string {
+	return GetString(EnvTLSKey, "")
 }

@@ -8,7 +8,20 @@ import (
 	"github.com/zackb/updog/env"
 )
 
-func NewHTTPServer(adder func(*http.ServeMux)) *http.Server {
+type Server struct {
+	*http.Server
+	CertFile string
+	KeyFile  string
+}
+
+func (s *Server) ListenAndServe() error {
+	if s.CertFile != "" && s.KeyFile != "" {
+		return s.Server.ListenAndServeTLS(s.CertFile, s.KeyFile)
+	}
+	return s.Server.ListenAndServe()
+}
+
+func NewHTTPServer(adder func(*http.ServeMux)) *Server {
 	handler := http.NewServeMux()
 
 	handler.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -17,5 +30,9 @@ func NewHTTPServer(adder func(*http.ServeMux)) *http.Server {
 
 	adder(handler)
 
-	return &http.Server{Addr: ":" + strconv.Itoa(env.GetHTTPPort()), Handler: handler}
+	return &Server{
+		Server:   &http.Server{Addr: ":" + strconv.Itoa(env.GetHTTPPort()), Handler: handler},
+		CertFile: env.GetTLSCert(),
+		KeyFile:  env.GetTLSKey(),
+	}
 }
