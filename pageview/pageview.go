@@ -106,6 +106,7 @@ type DailyPageview struct {
 
 	Count          int64 `bun:"count,notnull"`
 	UniqueVisitors int64 `bun:"unique_visitors"`
+	Bounces        int64 `bun:"bounces"`
 
 	// relations
 	Domain     *domain.Domain   `bun:"rel:belongs-to,join:domain_id=id"`
@@ -141,4 +142,5 @@ type AggregatedPoint struct {
 	Time           time.Time `bun:"time"`
 	Count          int64     `bun:"count"`
 	UniqueVisitors int64     `bun:"unique_visitors"`
+	BounceRate     float64   `bun:"bounce_rate"`
 }
