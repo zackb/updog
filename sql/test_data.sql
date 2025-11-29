@@ -182,7 +182,7 @@ INSERT INTO pageviews (domain_id, ts, path, country_id, region_id, browser_id, o
 ('al41JAbrFtm', datetime('now', '-89 days', '+19 hours'), '/', 10, 16, 2, 1, 1, 10, 1, 2020);
 
 -- Continue with more varied data for the remaining days
--- Day 88 (100 pageviews, ~80 unique visitors)
+-- Day 88 (150 pageviews, ~60 unique visitors - many returning visitors)
 INSERT INTO pageviews (domain_id, ts, path, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, visitor_id)
 SELECT 
     'al41JAbrFtm',
@@ -204,17 +204,17 @@ SELECT
     (id % 3) + 1,
     (id % 10) + 1,
     (id % 11) + 1,
-    3000 + id
+    3000 + (id % 60)  -- Reuse visitor IDs to create returning visitors
 FROM (
     WITH RECURSIVE cnt(id) AS (
         SELECT 1
         UNION ALL
-        SELECT id + 1 FROM cnt WHERE id < 100
+        SELECT id + 1 FROM cnt WHERE id < 150
     )
     SELECT id FROM cnt
 );
 
--- Day 87 (120 pageviews, ~95 unique visitors)
+-- Day 87 (180 pageviews, ~70 unique visitors - returning visitors)
 INSERT INTO pageviews (domain_id, ts, path, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, visitor_id)
 SELECT 
     'al41JAbrFtm',
@@ -237,17 +237,18 @@ SELECT
     (id % 3) + 1,
     (id % 10) + 1,
     (id % 11) + 1,
-    4000 + id
+    4000 + (id % 70)  -- Reuse visitor IDs
 FROM (
     WITH RECURSIVE cnt(id) AS (
         SELECT 1
         UNION ALL
-        SELECT id + 1 FROM cnt WHERE id < 120
+        SELECT id + 1 FROM cnt WHERE id < 180
     )
     SELECT id FROM cnt
 );
 
 -- Generate data for days 86-61 (Month 1 - gradually increasing traffic)
+-- ~250 pageviews per day, ~100 unique visitors
 INSERT INTO pageviews (domain_id, ts, path, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, visitor_id)
 SELECT 
     'al41JAbrFtm',
@@ -271,7 +272,7 @@ SELECT
     (id % 3) + 1,
     (id % 10) + 1,
     (id % 11) + 1,
-    (day_offset * 1000) + id
+    (day_offset * 1000) + (id % 100)  -- Reuse visitor IDs within each day
 FROM (
     WITH RECURSIVE days(day_offset) AS (
         SELECT 86
@@ -281,12 +282,13 @@ FROM (
     cnt(id) AS (
         SELECT 1
         UNION ALL
-        SELECT id + 1 FROM cnt WHERE id < 150
+        SELECT id + 1 FROM cnt WHERE id < 250
     )
     SELECT day_offset, id FROM days, cnt
 );
 
--- Month 2 (Days 60-31 ago) - Medium traffic with some bounces
+-- Month 2 (Days 60-31 ago) - Medium traffic
+-- ~450 pageviews per day, ~200 unique visitors
 INSERT INTO pageviews (domain_id, ts, path, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, visitor_id)
 SELECT 
     'al41JAbrFtm',
@@ -312,7 +314,7 @@ SELECT
     (id % 3) + 1,
     (id % 10) + 1,
     (id % 11) + 1,
-    (day_offset * 2000) + id
+    (day_offset * 2000) + (id % 200)  -- Reuse visitor IDs within each day
 FROM (
     WITH RECURSIVE days(day_offset) AS (
         SELECT 60
@@ -322,12 +324,13 @@ FROM (
     cnt(id) AS (
         SELECT 1
         UNION ALL
-        SELECT id + 1 FROM cnt WHERE id < 300
+        SELECT id + 1 FROM cnt WHERE id < 450
     )
     SELECT day_offset, id FROM days, cnt
 );
 
 -- Month 3 (Days 30-1 ago) - Higher traffic
+-- ~750 pageviews per day, ~300 unique visitors
 INSERT INTO pageviews (domain_id, ts, path, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, visitor_id)
 SELECT 
     'al41JAbrFtm',
@@ -356,7 +359,7 @@ SELECT
     (id % 3) + 1,
     (id % 10) + 1,
     (id % 11) + 1,
-    (day_offset * 5000) + id
+    (day_offset * 5000) + (id % 300)  -- Reuse visitor IDs within each day
 FROM (
     WITH RECURSIVE days(day_offset) AS (
         SELECT 30
@@ -366,10 +369,31 @@ FROM (
     cnt(id) AS (
         SELECT 1
         UNION ALL
-        SELECT id + 1 FROM cnt WHERE id < 500
+        SELECT id + 1 FROM cnt WHERE id < 750
     )
     SELECT day_offset, id FROM days, cnt
 );
 
 -- Add some bounces (single pageview visitors) scattered throughout
--- These are already included in the data above as some visitor_ids only appear once
+-- About 20% of unique visitors should be bounces
+INSERT INTO pageviews (domain_id, ts, path, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, visitor_id)
+SELECT 
+    'al41JAbrFtm',
+    datetime('now', '-' || (id % 90) || ' days', '+' || (id % 24) || ' hours', '+' || (id % 60) || ' minutes'),
+    '/',  -- Bounces typically only view the landing page
+    (id % 10) + 1,
+    (id % 16) + 1,
+    (id % 6) + 1,
+    (id % 6) + 1,
+    (id % 3) + 1,
+    (id % 10) + 1,
+    (id % 11) + 1,
+    900000 + id  -- Unique visitor IDs for bounces
+FROM (
+    WITH RECURSIVE cnt(id) AS (
+        SELECT 1
+        UNION ALL
+        SELECT id + 1 FROM cnt WHERE id < 500
+    )
+    SELECT id FROM cnt
+);
