@@ -240,19 +240,37 @@ func (db *DB) RunDailyRollup(ctx context.Context) error {
 
 func (db *DB) GetHourlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
 	var stats []*pageview.AggregatedPoint
+
 	timeExpr := db.dateTrunc("hour", "ts")
 
 	err := db.Db.NewSelect().
 		Model((*pageview.Pageview)(nil)).
-		ColumnExpr(timeExpr+" as time").
-		ColumnExpr("count(*) as count").
-		ColumnExpr("count(distinct visitor_id) as unique_visitors").
+		ColumnExpr(timeExpr+" AS time").
+		ColumnExpr("COUNT(*) AS count").
+		ColumnExpr("COUNT(DISTINCT visitor_id) AS unique_visitors").
+		ColumnExpr(`
+		    (
+		        SELECT 
+		            1.0 * SUM(CASE WHEN cnt = 1 THEN 1 ELSE 0 END)
+		            / NULLIF(COUNT(*), 0)
+		        FROM (
+		            SELECT visitor_id, COUNT(*) AS cnt
+		            FROM pageviews pv2
+		            WHERE pv2.domain_id = ?
+		              AND pv2.ts >= ?
+		              AND pv2.ts <= ?
+		              AND `+db.dateTrunc("hour", "pv2.ts")+` = `+timeExpr+`
+		            GROUP BY visitor_id
+		        ) AS hourly_sessions
+		    ) AS bounce_rate
+		`, domainID, start, end).
 		Where("domain_id = ?", domainID).
 		Where("ts >= ?", start).
 		Where("ts <= ?", end).
 		GroupExpr("time").
 		OrderExpr("time ASC").
 		Scan(ctx, &stats)
+
 	return stats, err
 }
 
