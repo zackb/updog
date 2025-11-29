@@ -117,3 +117,22 @@ type DailyPageview struct {
 	Language   *Language        `bun:"rel:belongs-to,join:language_id=id"`
 	Referrer   *Referrer        `bun:"rel:belongs-to,join:referrer_id=id"`
 }
+
+type PageStats struct {
+	Path        string
+	Count       int64
+	UniqueCount int64
+	BounceRate  float64
+}
+
+type DeviceStats struct {
+	DeviceType string
+	Count      int64
+	Percentage float64
+}
+
+type AggregatedStats struct {
+	TotalPageviews int64
+	UniqueVisitors int64
+	BounceRate     float64
+}

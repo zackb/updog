@@ -20,7 +20,7 @@
                 </div>
                 <div class="stat-details">
                     <h3>Total Views</h3>
-                    <p class="value">124,592</p>
+                    <p class="value">{{if .Stats.Aggregated}}{{.Stats.Aggregated.TotalPageviews}}{{else}}0{{end}}</p>
                     <span class="trend positive">
                         <i class="fa-solid fa-arrow-up"></i> 12.5%
                     </span>
@@ -32,7 +32,7 @@
                 </div>
                 <div class="stat-details">
                     <h3>Unique Visitors</h3>
-                    <p class="value">42,890</p>
+                    <p class="value">{{if .Stats.Aggregated}}{{.Stats.Aggregated.UniqueVisitors}}{{else}}0{{end}}</p>
                     <span class="trend positive">
                         <i class="fa-solid fa-arrow-up"></i> 8.2%
                     </span>
@@ -44,7 +44,7 @@
                 </div>
                 <div class="stat-details">
                     <h3>Bounce Rate</h3>
-                    <p class="value">42.5%</p>
+                    <p class="value">{{if .Stats.Aggregated}}{{.Stats.Aggregated.BounceRate}}{{else}}0{{end}}%</p>
                     <span class="trend negative">
                         <i class="fa-solid fa-arrow-down"></i> 2.1%
                     </span>
@@ -77,18 +77,15 @@
                 </div>
                 <div class="chart-placeholder">
                     <!-- In a real app, a canvas or SVG chart would go here -->
-                    <div class="bar" style="height: 40%"></div>
-                    <div class="bar" style="height: 60%"></div>
-                    <div class="bar" style="height: 45%"></div>
-                    <div class="bar" style="height: 70%"></div>
-                    <div class="bar" style="height: 55%"></div>
-                    <div class="bar" style="height: 80%"></div>
-                    <div class="bar" style="height: 65%"></div>
-                    <div class="bar" style="height: 90%"></div>
-                    <div class="bar" style="height: 75%"></div>
-                    <div class="bar" style="height: 50%"></div>
-                    <div class="bar" style="height: 60%"></div>
-                    <div class="bar" style="height: 85%"></div>
+                    {{if .Stats.GraphData}}
+                    {{$max := .Stats.MaxDailyViews}}
+                    {{range .Stats.GraphData}}
+                    <div class="bar" style="height: {{if eq $max 0}}0{{else}}calc({{.Count}} / {{$max}} * 100%){{end}}"
+                        title="{{.Day.Format " Jan 02"}}: {{.Count}} views"></div>
+                    {{end}}
+                    {{else}}
+                    <p style="width: 100%; text-align: center; color: var(--text-secondary);">No data available</p>
+                    {{end}}
                 </div>
             </div>
             <div class="chart-container secondary-chart">
@@ -96,24 +93,25 @@
                     <h2>Device Usage</h2>
                 </div>
                 <div class="donut-chart-placeholder">
-                    <div class="donut-segment segment-1"></div>
-                    <div class="donut-segment segment-2"></div>
-                    <div class="donut-segment segment-3"></div>
+                    <!-- Simplified donut representation -->
                     <div class="donut-center">
-                        <span>Mobile</span>
-                        <strong>65%</strong>
+                        <span>Top Device</span>
+                        <strong>
+                            {{if .Stats.DeviceUsage}}
+                            {{(index .Stats.DeviceUsage 0).DeviceType}}
+                            {{else}}
+                            -
+                            {{end}}
+                        </strong>
                     </div>
                 </div>
                 <div class="chart-legend">
+                    {{range .Stats.DeviceUsage}}
                     <div class="legend-item">
-                        <span class="dot mobile"></span> Mobile
+                        <span class="dot" style="background-color: var(--accent-primary);"></span> {{.DeviceType}}
+                        ({{printf "%.1f" .Percentage}}%)
                     </div>
-                    <div class="legend-item">
-                        <span class="dot desktop"></span> Desktop
-                    </div>
-                    <div class="legend-item">
-                        <span class="dot tablet"></span> Tablet
-                    </div>
+                    {{end}}
                 </div>
             </div>
         </div>
@@ -121,7 +119,7 @@
         <!-- Recent Activity Table -->
         <div class="table-section">
             <div class="section-header">
-                <h2>Recent Activity</h2>
+                <h2>Top Pages</h2>
                 <a href="#" class="view-all">View All</a>
             </div>
             <div class="table-responsive">
@@ -129,56 +127,30 @@
                     <thead>
                         <tr>
                             <th>Page</th>
-                            <th>Visitors</th>
+                            <th>Views</th>
                             <th>Unique</th>
                             <th>Bounce Rate</th>
                         </tr>
                     </thead>
                     <tbody>
+                        {{range .Stats.TopPages}}
                         <tr>
                             <td>
                                 <div class="page-info">
-                                    <span class="path">/home</span>
-                                    <span class="title">Homepage</span>
+                                    <span class="path">{{.Path}}</span>
+                                    <span class="title">{{.Title}}</span>
                                 </div>
                             </td>
-                            <td>12,405</td>
-                            <td>8,200</td>
-                            <td>35%</td>
+                            <td>{{.Count}}</td>
+                            <td>{{.UniqueCount}}</td>
+                            <td>{{printf "%.1f" .BounceRate}}%</td>
                         </tr>
+                        {{else}}
                         <tr>
-                            <td>
-                                <div class="page-info">
-                                    <span class="path">/pricing</span>
-                                    <span class="title">Pricing Page</span>
-                                </div>
-                            </td>
-                            <td>5,200</td>
-                            <td>3,100</td>
-                            <td>25%</td>
+                            <td colspan="4" style="text-align: center; color: var(--text-secondary);">No pages viewed
+                                yet</td>
                         </tr>
-                        <tr>
-                            <td>
-                                <div class="page-info">
-                                    <span class="path">/blog/new-features</span>
-                                    <span class="title">Blog Post</span>
-                                </div>
-                            </td>
-                            <td>3,800</td>
-                            <td>3,500</td>
-                            <td>65%</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div class="page-info">
-                                    <span class="path">/contact</span>
-                                    <span class="title">Contact Us</span>
-                                </div>
-                            </td>
-                            <td>1,200</td>
-                            <td>900</td>
-                            <td>40%</td>
-                        </tr>
+                        {{end}}
                     </tbody>
                 </table>
             </div>

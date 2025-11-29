@@ -120,11 +120,43 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 		// get pageviews for the last 30 days
 		end := time.Now()
 		start := end.AddDate(0, 0, -30)
-		count, err := f.db.PageviewStorage().CountPageviewsByDomainID(r.Context(), selectedDomain.ID, start, end)
+
+		// get aggregated stats
+		agg, err := f.db.PageviewStorage().GetAggregatedStats(r.Context(), selectedDomain.ID, start, end)
 		if err != nil {
-			log.Printf("Failed to count pageviews: %v", err)
+			log.Printf("Failed to get aggregated stats: %v", err)
 		} else {
-			stats.TotalPageviews = count
+			stats.Aggregated = agg
+			stats.TotalPageviews = int(agg.TotalPageviews)
+		}
+
+		// graph data
+		graph, err := f.db.PageviewStorage().GetGraphData(r.Context(), selectedDomain.ID, start, end)
+		if err != nil {
+			log.Printf("Failed to get graph data: %v", err)
+		} else {
+			stats.GraphData = graph
+			for _, d := range graph {
+				if d.Count > stats.MaxDailyViews {
+					stats.MaxDailyViews = d.Count
+				}
+			}
+		}
+
+		// top pages
+		topPages, err := f.db.PageviewStorage().GetTopPages(r.Context(), selectedDomain.ID, start, end, 5)
+		if err != nil {
+			log.Printf("Failed to get top pages: %v", err)
+		} else {
+			stats.TopPages = topPages
+		}
+
+		// device usage
+		deviceUsage, err := f.db.PageviewStorage().GetDeviceUsage(r.Context(), selectedDomain.ID, start, end)
+		if err != nil {
+			log.Printf("Failed to get device usage: %v", err)
+		} else {
+			stats.DeviceUsage = deviceUsage
 		}
 	}
 

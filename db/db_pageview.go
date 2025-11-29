@@ -40,6 +40,112 @@ func (db *DB) ListPageviewsByDomainID(ctx context.Context, domainID string, star
 	return pageviews, err
 }
 
+func (db *DB) GetAggregatedStats(ctx context.Context, domainID string, start, end time.Time) (*pageview.AggregatedStats, error) {
+	stats := &pageview.AggregatedStats{}
+
+	// total pageviews
+	count, err := db.Db.NewSelect().
+		Model((*pageview.Pageview)(nil)).
+		Where("domain_id = ?", domainID).
+		Where("ts >= ?", start).
+		Where("ts <= ?", end).
+		Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+	stats.TotalPageviews = int64(count)
+
+	// unique visitors
+	var uniqueCount int64
+	err = db.Db.NewSelect().
+		Model((*pageview.Pageview)(nil)).
+		ColumnExpr("COUNT(DISTINCT visitor_id)").
+		Where("domain_id = ?", domainID).
+		Where("ts >= ?", start).
+		Where("ts <= ?", end).
+		Scan(ctx, &uniqueCount)
+	if err != nil {
+		return nil, err
+	}
+	stats.UniqueVisitors = uniqueCount
+
+	stats.BounceRate = 0.0 // TODO: Placeholder
+
+	return stats, nil
+}
+
+func (db *DB) GetGraphData(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.DailyPageview, error) {
+	// TODO: this should use rollups
+	var results []*pageview.DailyPageview
+
+	err := db.Db.NewSelect().
+		Model((*pageview.Pageview)(nil)).
+		ColumnExpr("date(ts) as day").
+		ColumnExpr("count(*) as count").
+		ColumnExpr("count(distinct visitor_id) as unique_visitors").
+		Where("domain_id = ?", domainID).
+		Where("ts >= ?", start).
+		Where("ts <= ?", end).
+		GroupExpr("day").
+		OrderExpr("day ASC").
+		Scan(ctx, &results)
+
+	return results, err
+}
+
+func (db *DB) GetTopPages(ctx context.Context, domainID string, start, end time.Time, limit int) ([]*pageview.PageStats, error) {
+	var stats []*pageview.PageStats
+
+	err := db.Db.NewSelect().
+		Model((*pageview.Pageview)(nil)).
+		Column("path").
+		ColumnExpr("count(*) as count").
+		ColumnExpr("count(distinct visitor_id) as unique_count").
+		Where("domain_id = ?", domainID).
+		Where("ts >= ?", start).
+		Where("ts <= ?", end).
+		Group("path").
+		Order("count DESC").
+		Limit(limit).
+		Scan(ctx, &stats)
+
+	return stats, err
+}
+
+func (db *DB) GetDeviceUsage(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.DeviceStats, error) {
+	var stats []*pageview.DeviceStats
+
+	total, err := db.CountPageviewsByDomainID(ctx, domainID, start, end)
+	if err != nil {
+		return nil, err
+	}
+	if total == 0 {
+		return stats, nil
+	}
+
+	err = db.Db.NewSelect().
+		Model((*pageview.Pageview)(nil)).
+		ColumnExpr("dt.name as device_type").
+		ColumnExpr("count(*) as count").
+		Join("JOIN device_types AS dt ON dt.id = pageview.device_type_id").
+		Where("domain_id = ?", domainID).
+		Where("ts >= ?", start).
+		Where("ts <= ?", end).
+		Group("dt.name").
+		Order("count DESC").
+		Scan(ctx, &stats)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, s := range stats {
+		s.Percentage = float64(s.Count) / float64(total) * 100
+	}
+
+	return stats, nil
+}
+
 func (db *DB) RunDailyRollup(ctx context.Context) error {
 	// yesterday in UTC
 	dayStart := time.Now().UTC().AddDate(0, 0, -1)
