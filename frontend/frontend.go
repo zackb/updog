@@ -305,6 +305,11 @@ func (f *Frontend) verifyDomain(w http.ResponseWriter, r *http.Request) {
 
 func (f *Frontend) index(w http.ResponseWriter, r *http.Request) {
 
+	if f.auth.IsAuthenticated(r) != nil {
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+		return
+	}
+
 	data := PageData{
 		Title: "Welcome to Updog",
 		User:  f.userFromRequest(r),

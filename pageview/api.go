@@ -157,6 +157,7 @@ func (h *Handler) parseTimeParams(r *http.Request) (time.Time, time.Time, error)
 	return from, to, nil
 }
 
+// resolveDomainID determines the domain ID to use based on the request parameters and user ownership.
 func (h *Handler) resolveDomainID(r *http.Request, userID string) (string, error) {
 	domains, err := h.domainStore.ListDomainsByUser(r.Context(), userID)
 	if err != nil {
@@ -167,6 +168,17 @@ func (h *Handler) resolveDomainID(r *http.Request, userID string) (string, error
 	if requestedDomainID != "" {
 		for _, d := range domains {
 			if d.ID == requestedDomainID {
+				return d.ID, nil
+			}
+		}
+		// user requested a domain they don't own or doesn't exist
+		return "", nil
+	}
+
+	requestedDomainName := r.URL.Query().Get("domain")
+	if requestedDomainName != "" {
+		for _, d := range domains {
+			if d.Name == requestedDomainName {
 				return d.ID, nil
 			}
 		}
