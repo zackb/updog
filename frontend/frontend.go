@@ -28,7 +28,8 @@ var viewsFS embed.FS
 //go:embed public/img/* public/script/* public/style/*
 var staticFS embed.FS
 
-var tmpl = template.Must(template.ParseFS(viewsFS, "views/*.html"))
+var tmpl = template.Must(template.New("").Funcs(Funcs).
+	ParseFS(viewsFS, "views/*.html"))
 
 var staticHandler http.Handler
 
@@ -434,13 +435,15 @@ func (f *Frontend) join(w http.ResponseWriter, r *http.Request) {
 func initTemplatesAndStatic() error {
 	if env.IsDev() {
 		// dev mode from disk
-		tmpl = template.Must(template.ParseGlob(filepath.Join("frontend", "views", "*.html")))
+		tmpl = template.Must(template.New("").Funcs(Funcs).
+			ParseGlob(filepath.Join("frontend", "views", "*.html")))
 
 		// serve static files from disk
 		staticHandler = http.FileServer(http.Dir(filepath.Join("frontend", "public")))
 	} else {
 		// production from embedded FS
-		tmpl = template.Must(template.ParseFS(viewsFS, "views/*.html"))
+		tmpl = template.Must(template.New("").Funcs(Funcs).
+			ParseFS(viewsFS, "views/*.html"))
 
 		// serve static files from embedded FS
 		staticSub, err := fs.Sub(staticFS, "public")

@@ -10,6 +10,11 @@
     --border-color: #30363d;
     --font-main: 'Outfit', sans-serif;
     --sidebar-width: 260px;
+
+    /* Device type colors */
+    --color-mobile: #58a6ff;
+    --color-desktop: #238636;
+    --color-tablet: #f1e05a;
 }
 
 * {
@@ -357,6 +362,12 @@ body {
     margin: 1rem 0;
 }
 
+#deviceChart {
+    position: absolute;
+    max-width: 200px;
+    max-height: 200px;
+}
+
 .donut-segment {
     position: absolute;
     width: 160px;
@@ -383,6 +394,7 @@ body {
 .donut-center {
     position: absolute;
     text-align: center;
+    z-index: 10;
 }
 
 .donut-center span {

@@ -93,22 +93,77 @@
                     <h2>Device Usage</h2>
                 </div>
                 <div class="donut-chart-placeholder">
-                    <!-- Simplified donut representation -->
-                    <div class="donut-center">
-                        <span>Top Device</span>
-                        <strong>
-                            {{if .Stats.DeviceUsage}}
-                            {{(index .Stats.DeviceUsage 0).DeviceType}}
-                            {{else}}
-                            -
+                    {{if .Stats.DeviceUsage}}
+                    <canvas id="deviceChart" width="200" height="200"></canvas>
+
+                    <script>
+                    (function () {
+                        const canvas = document.getElementById('deviceChart');
+                        const ctx = canvas.getContext('2d');
+
+                        const centerX = 100;
+                        const centerY = 100;
+                        const outerRadius = 80;
+                        const innerRadius = 50;
+
+                        // Prepare segment data
+                        const data = [
+                            {{range $index, $d := .Stats.DeviceUsage}}
+                                {{if $index}},{{end}}
+                                {
+                                    label: '{{$d.DeviceType}}',
+                                    percentage: {{$d.Percentage}},
+                                    color: (
+                                        getComputedStyle(document.documentElement)
+                                            .getPropertyValue('--color-{{$d.DeviceType | lower}}')
+                                            .trim()
+                                    ) || (function () {
+                                        const fallback = {
+                                            mobile: '#58a6ff',
+                                            desktop: '#238636',
+                                            tablet: '#f1e05a'
+                                        };
+                                        return fallback['{{$d.DeviceType | lower}}'] || '#58a6ff';
+                                    })()
+                                }
                             {{end}}
-                        </strong>
+                        ];
+
+                        let currentAngle = -Math.PI / 2; // Start at top
+
+                        // Draw donut slices
+                        data.forEach(segment => {
+                            const sliceAngle = (segment.percentage / 100) * 2 * Math.PI;
+
+                            ctx.beginPath();
+                            ctx.arc(centerX, centerY, outerRadius, currentAngle, currentAngle + sliceAngle);
+                            ctx.arc(centerX, centerY, innerRadius, currentAngle + sliceAngle, currentAngle, true);
+                            ctx.closePath();
+
+                            ctx.fillStyle = segment.color;
+                            ctx.fill();
+
+                            currentAngle += sliceAngle;
+                        });
+                    })();
+                    </script>
+
+                    <div class="donut-center">
+                        <span>Total Devices</span>
+                        <strong>{{len .Stats.DeviceUsage}}</strong>
                     </div>
+                    {{else}}
+                    <div class="donut-center">
+                        <span>No Data</span>
+                        <strong>-</strong>
+                    </div>
+                    {{end}}
+
                 </div>
                 <div class="chart-legend">
                     {{range .Stats.DeviceUsage}}
                     <div class="legend-item">
-                        <span class="dot" style="background-color: var(--accent-primary);"></span> {{.DeviceType}}
+                        <span class="dot {{.DeviceType | lower}}"></span> {{.DeviceType}}
                         ({{printf "%.1f" .Percentage}}%)
                     </div>
                     {{end}}
