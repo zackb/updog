@@ -50,7 +50,7 @@ function loadRealtimePageviews() {
                 // Build row HTML
                 row.innerHTML = `
                     <td class="time-cell">${timeStr}</td>
-                    <td class="path-cell">${escapeHtml(pageview.Path || '/')}</td>
+                    <td class="path-cell">${escapeHtml(pageview.Path.Path || '/')}</td>
                     <td>${formatCountry(pageview.Country)}</td>
                     <td>${formatBrowser(pageview.Browser)}</td>
                     <td>${formatOS(pageview.OS)}</td>

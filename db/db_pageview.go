@@ -31,6 +31,7 @@ func (db *DB) ListPageviewsByDomainID(ctx context.Context, domainID string, star
 		Relation("DeviceType").
 		Relation("Language").
 		Relation("Referrer").
+		Relation("Path").
 		Where("domain_id = ?", domainID).
 		Where("ts >= ?", start).
 		Where("ts <= ?", end).
