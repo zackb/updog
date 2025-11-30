@@ -38,9 +38,32 @@ func (h *Handler) Routes() chi.Router {
 		protected.Get("/hourly", h.handleGetHourlyStats)
 		protected.Get("/daily", h.handleGetDailyStats)
 		protected.Get("/monthly", h.handleGetMonthlyStats)
+		// TODO: remove this
+		protected.Get("/rollup", h.handleRollup)
 	})
 
 	return r
+}
+
+func (h *Handler) handleRollup(w http.ResponseWriter, r *http.Request) {
+	day := time.Now().AddDate(0, 0, -1)
+	dayStr := r.URL.Query().Get("day")
+	if dayStr != "" {
+		var err error
+		day, err = time.Parse("2006-01-02", dayStr)
+		if err != nil {
+			http.Error(w, "Invalid 'day' date", http.StatusBadRequest)
+			return
+		}
+	}
+
+	err := h.store.RunDailyRollup(r.Context(), day)
+	if err != nil {
+		log.Println("Error rolling up pageviews:", err)
+		httpx.JSONError(w, "Error rolling up pageviews", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) handleListPageviews(w http.ResponseWriter, r *http.Request) {
