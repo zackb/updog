@@ -313,17 +313,16 @@ func (db *DB) GetHourlyStats(ctx context.Context, domainID string, start, end ti
 func (db *DB) GetDailyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
 	var stats []*pageview.AggregatedPoint
 
-	// cutoff is the start of the current day in UTC
+	// normalize current day in UTC
 	now := time.Now().UTC()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 
-	// ensure we don't query beyond end if end is also before todayStart
+	// determine historic and live ranges
 	historicEnd := end
 	if historicEnd.After(todayStart) {
-		historicEnd = todayStart.Add(-time.Nanosecond) // Just before today
+		historicEnd = todayStart.Add(-time.Nanosecond) // just before today
 	}
 
-	// start from todayStart at minimum for live data
 	liveStart := start
 	if liveStart.Before(todayStart) {
 		liveStart = todayStart
@@ -334,10 +333,10 @@ func (db *DB) GetDailyStats(ctx context.Context, domainID string, start, end tim
 		var historicStats []*pageview.AggregatedPoint
 		err := db.Db.NewSelect().
 			Model((*pageview.DailyPageview)(nil)).
-			ColumnExpr("day as time").
-			ColumnExpr("sum(count) as count").
-			ColumnExpr("sum(unique_visitors) as unique_visitors").
-			ColumnExpr("(CAST(sum(bounces) AS FLOAT) / NULLIF(sum(unique_visitors), 0)) as bounce_rate").
+			ColumnExpr("day AS time").
+			ColumnExpr("SUM(count) AS count").
+			ColumnExpr("SUM(unique_visitors) AS unique_visitors").
+			ColumnExpr("(SUM(bounces) / NULLIF(SUM(unique_visitors), 0)) AS bounce_rate").
 			Where("domain_id = ?", domainID).
 			Where("day >= ?", start).
 			Where("day <= ?", historicEnd).
@@ -350,28 +349,30 @@ func (db *DB) GetDailyStats(ctx context.Context, domainID string, start, end tim
 		stats = append(stats, historicStats...)
 	}
 
-	// query pageviews for today and onwards
+	// live
 	if end.After(todayStart) || end.Equal(todayStart) {
 		var liveStats []*pageview.AggregatedPoint
-		timeExpr := db.dateTrunc("day", "ts")
+		timeExpr := db.dateTrunc("day", "pageview.ts")
 
-		// for live bounces, we need to know if a visitor bounced TODAY.
-		subq := db.Db.NewSelect().
+		// precompute visitor counts per day for bounce calculation
+		visitorSubq := db.Db.NewSelect().
 			Model((*pageview.Pageview)(nil)).
+			ColumnExpr(db.dateTrunc("day", "ts")+" AS day").
 			Column("visitor_id").
-			ColumnExpr("COUNT(*) as pv_count").
+			ColumnExpr("COUNT(*) AS pv_count").
 			Where("ts >= ?", liveStart).
 			Where("ts <= ?", end).
-			Group("visitor_id")
+			Group("visitor_id, day")
 
 		err := db.Db.NewSelect().
 			Model((*pageview.Pageview)(nil)).
-			ColumnExpr(timeExpr+" as time").
-			ColumnExpr("count(*) as count").
-			ColumnExpr("count(distinct pageview.visitor_id) as unique_visitors").
-			ColumnExpr("(CAST(SUM(CASE WHEN visitor_pageviews.pv_count = 1 THEN 1 ELSE 0 END) AS FLOAT) / NULLIF(COUNT(DISTINCT pageview.visitor_id), 0)) as bounce_rate").
-			Join("LEFT JOIN (?) AS visitor_pageviews ON pageview.visitor_id = visitor_pageviews.visitor_id", subq).
-			Where("domain_id = ?", domainID).
+			ColumnExpr(timeExpr+" AS time").
+			ColumnExpr("COUNT(*) AS count").
+			ColumnExpr("COUNT(DISTINCT pageview.visitor_id) AS unique_visitors").
+			ColumnExpr(`SUM(CASE WHEN visitor_day.pv_count = 1 THEN 1.0 ELSE 0 END) / 
+                        NULLIF(COUNT(DISTINCT pageview.visitor_id), 0) AS bounce_rate`).
+			Join("LEFT JOIN (?) AS visitor_day ON pageview.visitor_id = visitor_day.visitor_id AND "+timeExpr+" = visitor_day.day", visitorSubq).
+			Where("pageview.domain_id = ?", domainID).
 			Where("ts >= ?", liveStart).
 			Where("ts <= ?", end).
 			GroupExpr("time").
