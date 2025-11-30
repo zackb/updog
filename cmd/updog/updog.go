@@ -11,6 +11,7 @@ import (
 	"github.com/zackb/updog/enrichment"
 	"github.com/zackb/updog/frontend"
 	"github.com/zackb/updog/handler"
+	"github.com/zackb/updog/job"
 	"github.com/zackb/updog/serve"
 	"github.com/zackb/updog/signal"
 )
@@ -48,6 +49,11 @@ func main() {
 		mux.Handle("/view.gif", handler.Handler(store, store, enricher, true))
 		mux.Handle("/api/", api.Routes())
 	})
+
+	// create scheduler
+	scheduler := job.NewScheduler()
+	scheduler.AddDefaultJobs(store)
+	scheduler.Start()
 
 	sig := signal.Stop(func() {
 		log.Println("Shutting down server...")
