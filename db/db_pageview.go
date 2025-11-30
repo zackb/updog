@@ -336,13 +336,14 @@ func (db *DB) GetDailyStats(ctx context.Context, domainID string, start, end tim
 			ColumnExpr("day AS time").
 			ColumnExpr("SUM(count) AS count").
 			ColumnExpr("SUM(unique_visitors) AS unique_visitors").
-			ColumnExpr("(SUM(bounces) / NULLIF(SUM(unique_visitors), 0)) AS bounce_rate").
+			ColumnExpr("(SUM(bounces) * 1.0 / NULLIF(SUM(unique_visitors), 0)) AS bounce_rate").
 			Where("domain_id = ?", domainID).
 			Where("day >= ?", start).
 			Where("day <= ?", historicEnd).
 			GroupExpr("day").
 			OrderExpr("day ASC").
 			Scan(ctx, &historicStats)
+
 		if err != nil {
 			return nil, err
 		}
@@ -369,8 +370,8 @@ func (db *DB) GetDailyStats(ctx context.Context, domainID string, start, end tim
 			ColumnExpr(timeExpr+" AS time").
 			ColumnExpr("COUNT(*) AS count").
 			ColumnExpr("COUNT(DISTINCT pageview.visitor_id) AS unique_visitors").
-			ColumnExpr(`SUM(CASE WHEN visitor_day.pv_count = 1 THEN 1.0 ELSE 0 END) / 
-                        NULLIF(COUNT(DISTINCT pageview.visitor_id), 0) AS bounce_rate`).
+			ColumnExpr(`SUM(CASE WHEN visitor_day.pv_count = 1 THEN 1 ELSE 0 END) * 1.0 / 
+				NULLIF(COUNT(DISTINCT pageview.visitor_id), 0) AS bounce_rate`).
 			Join("LEFT JOIN (?) AS visitor_day ON pageview.visitor_id = visitor_day.visitor_id AND "+timeExpr+" = visitor_day.day", visitorSubq).
 			Where("pageview.domain_id = ?", domainID).
 			Where("ts >= ?", liveStart).
