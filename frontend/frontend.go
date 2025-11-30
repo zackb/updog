@@ -428,19 +428,40 @@ func (f *Frontend) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (f *Frontend) join(w http.ResponseWriter, r *http.Request) {
+	data := PageData{
+		Title: "Sign Up",
+	}
+
+	disableSignups, err := f.db.ReadValueAsBool(r.Context(), settings.SettingDisableSignups)
+
+	if err != nil {
+		data.Error = "Failed to load settings"
+	}
+
+	if disableSignups {
+		data.Error = "Signups are currently disabled"
+	}
+
+	if data.Error != "" {
+		tmpl.ExecuteTemplate(w, "signup.html", data)
+		return
+	}
+
 	if r.Method == http.MethodPost {
 		email := r.FormValue("email")
 		password := r.FormValue("password")
 
 		if email == "" || password == "" {
-			http.Error(w, "Email and password are required", http.StatusBadRequest)
+			data.Error = "Failed to create user."
+			tmpl.ExecuteTemplate(w, "signup.html", data)
 			return
 		}
 
 		epass, err := user.HashPassword(password)
 		if err != nil {
 			log.Printf("Failed to hash password: %v", err)
-			http.Error(w, "Sorry! An internal error occurred", http.StatusInternalServerError)
+			data.Error = "Sorry! An internal error occurred."
+			tmpl.ExecuteTemplate(w, "signup.html", data)
 			return
 		}
 
@@ -452,7 +473,8 @@ func (f *Frontend) join(w http.ResponseWriter, r *http.Request) {
 
 		if err := f.db.CreateUser(r.Context(), u); err != nil {
 			log.Printf("Failed to create user: %v", err)
-			http.Error(w, "Failed to create user", http.StatusInternalServerError)
+			data.Error = "Failed to create user."
+			tmpl.ExecuteTemplate(w, "signup.html", data)
 			return
 		}
 
@@ -474,7 +496,7 @@ func (f *Frontend) join(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl.ExecuteTemplate(w, "signup.html", nil)
+	tmpl.ExecuteTemplate(w, "signup.html", data)
 }
 
 func initTemplatesAndStatic() error {
