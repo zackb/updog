@@ -1,4 +1,5 @@
 {{define "topbar"}}
+
 <header class="top-bar">
     <div class="search-bar">
         <i class="fa-solid fa-globe"></i>
@@ -13,9 +14,41 @@
             {{end}}
         </select>
     </div>
-    <div class="date-range">
-        <span>Last 30 Days</span>
-        <i class="fa-solid fa-calendar"></i>
+    <div class="date-range-container" style="position: relative;">
+        <div class="date-range" id="dateRangeSelector">
+            <span id="dateRangeLabel">Last 30 Days</span>
+            <i class="fa-solid fa-calendar"></i>
+        </div>
+
+        <div class="date-range-dropdown" id="dateRangeDropdown">
+            <div class="dropdown-section">
+                <div class="section-title">Date Range</div>
+                <select id="presetDateRange" class="preset-select">
+                    <option value="" disabled selected>Select a range...</option>
+                    <option value="today">Today</option>
+                    <option value="yesterday">Yesterday</option>
+                    <option value="this-week">This Week</option>
+                    <option value="last-week">Last Week</option>
+                    <option value="last-14-days">Last 14 Days</option>
+                    <option value="last-28-days">Last 28 Days</option>
+                    <option value="this-month">This Month</option>
+                    <option value="last-month">Last Month</option>
+                    <option value="this-year">This Year</option>
+                    <option value="last-year">Last Year</option>
+                    <option value="all-time">All Time</option>
+                </select>
+            </div>
+
+            <div class="dropdown-divider"></div>
+
+            <div class="dropdown-section">
+                <div class="section-title">Custom Range</div>
+                <div class="custom-range-input-wrapper">
+                    <input type="text" id="customDateInput" placeholder="Select dates...">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </div>
+            </div>
+        </div>
     </div>
 </header>
 {{end}}
