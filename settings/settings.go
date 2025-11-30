@@ -7,6 +7,10 @@ import (
 	"github.com/uptrace/bun"
 )
 
+const (
+	SettingDisableSignups = "disable_signups"
+)
+
 type Settings struct {
 	bun.BaseModel `bun:"table:settings"`
 	Key           string    `bun:",pk" json:"key"`

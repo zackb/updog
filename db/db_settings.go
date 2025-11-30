@@ -42,7 +42,7 @@ func (d *DB) SetValue(ctx context.Context, key, value string) error {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	_, err := d.Db.NewInsert().Model(model).On("CONFLICT (id) DO UPDATE").Exec(ctx)
+	_, err := d.Db.NewInsert().Model(model).On("CONFLICT (key) DO UPDATE").Exec(ctx)
 	return err
 }
 

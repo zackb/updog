@@ -1,0 +1,49 @@
+{{template "_header.html" .}}
+
+{{template "sidebar" .}}
+
+<!-- Main Content -->
+<main class="main-content">
+    {{template "topbar" .}}
+
+    <div class="dashboard-content">
+        <div class="page-header">
+            <h1>Settings</h1>
+            <p>Manage your application preferences.</p>
+        </div>
+
+        <div class="settings-container" style="max-width: 800px;">
+
+            <!-- General Settings -->
+            <div class="domain-card" style="margin-bottom: 2rem;">
+                <div class="domain-header">
+                    <h3>General Settings</h3>
+                </div>
+
+                <form action="/settings" method="POST" class="domain-form">
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" name="disable_signups" {{if .Data.DisableSignups}}checked{{end}}
+                                style="width: auto;">
+                            <span>Disable new user signups</span>
+                        </label>
+                        <p
+                            style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; margin-left: 24px;">
+                            Prevent new users from registering an account. Existing users can still log in.
+                        </p>
+                    </div>
+
+                    <div style="margin-top: 1rem;">
+                        <button type="submit" class="btn-primary"
+                            style="background-color: var(--accent-primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: var(--font-main);">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+{{template "_footer.html" .}}

@@ -15,6 +15,7 @@ import (
 	"github.com/zackb/updog/domain"
 	"github.com/zackb/updog/env"
 	"github.com/zackb/updog/id"
+	"github.com/zackb/updog/settings"
 	"github.com/zackb/updog/user"
 )
 
@@ -64,6 +65,7 @@ func (f *Frontend) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/realtime", f.authMiddleware(f.realtime))
 	mux.HandleFunc("/domains", f.authMiddleware(f.domains))
 	mux.HandleFunc("/domains/verify", f.authMiddleware(f.verifyDomain))
+	mux.HandleFunc("/settings", f.authMiddleware(f.settings))
 	mux.HandleFunc("/", f.index)
 }
 
@@ -302,6 +304,49 @@ func (f *Frontend) verifyDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/domains", http.StatusSeeOther)
+}
+
+func (f *Frontend) settings(w http.ResponseWriter, r *http.Request) {
+	user := f.userFromRequest(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	data := PageData{
+		Title: "Settings",
+		User:  user,
+		Slug:  "settings",
+	}
+
+	// POST update settings
+	if r.Method == http.MethodPost {
+		disableSignups := r.FormValue(settings.SettingDisableSignups) == "on"
+		if err := f.db.SetValueAsBool(r.Context(), settings.SettingDisableSignups, disableSignups); err != nil {
+			log.Printf("Failed to update settings: %v", err)
+			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+			return
+		}
+
+		// redirect to refresh the page and show updated state
+		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+		return
+	}
+
+	// GET settings
+	disableSignups, err := f.db.ReadValueAsBool(r.Context(), settings.SettingDisableSignups)
+	if err != nil {
+		log.Printf("Failed to read settings: %v", err)
+		data.Error = "Failed to load settings"
+	}
+
+	data.Data = map[string]any{
+		"DisableSignups": disableSignups,
+	}
+
+	if err := tmpl.ExecuteTemplate(w, "settings.html", data); err != nil {
+		http.Error(w, "Failed to render settings page", http.StatusInternalServerError)
+	}
 }
 
 func (f *Frontend) index(w http.ResponseWriter, r *http.Request) {

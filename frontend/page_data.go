@@ -27,4 +27,5 @@ type PageData struct {
 	Stats       *DashboardStats
 	Slug        string
 	Error       string
+	Data        map[string]interface{}
 }
