@@ -283,8 +283,7 @@ func (db *DB) GetHourlyStats(ctx context.Context, domainID string, start, end ti
 			hc.hour AS time,
 			hc.total_count AS count,
 			hc.unique_visitors AS unique_visitors,
-			SUM(CASE WHEN vh.pv_count = 1 THEN 1.0 ELSE 0 END) /
-				NULLIF(hc.unique_visitors, 0) AS bounce_rate
+			SUM(CASE WHEN vh.pv_count = 1 THEN 1 ELSE 0 END) * 1.0 / NULLIF(hc.unique_visitors,0) AS bounce_rate
 		FROM hourly_counts hc
 		LEFT JOIN visitor_hourly vh
 			ON hc.hour = vh.hour

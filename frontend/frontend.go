@@ -107,7 +107,7 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 	if selectedDomain != nil {
 		stats.SelectedDomain = selectedDomain
 		// get pageviews for the last 30 days
-		end := time.Now()
+		end := time.Now().UTC()
 		start := end.AddDate(0, 0, -30)
 
 		// get aggregated stats

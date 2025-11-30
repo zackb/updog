@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/zackb/updog/db"
 	"github.com/zackb/updog/domain"
@@ -111,6 +112,7 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher, gif bool) htt
 			LanguageID:   language.ID,
 			ReferrerID:   referrer.ID,
 			VisitorID:    entry.VisitorID,
+			Timestamp:    time.Now().UTC(),
 		}
 
 		// TODO: queue and model this better
@@ -134,7 +136,6 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher, gif bool) htt
 				0x02, 0x02, 0x44, 0x01, 0x00, 0x3B,
 			})
 		} else {
-
 			w.WriteHeader(http.StatusNoContent)
 		}
 	}
