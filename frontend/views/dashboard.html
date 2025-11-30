@@ -70,18 +70,18 @@
                 <div class="chart-header">
                     <h2>Traffic Overview</h2>
                     <div class="chart-actions">
-                        <button class="active">Daily</button>
-                        <button>Weekly</button>
+                        <button class="active">Hourly</button>
+                        <button>Daily</button>
                         <button>Monthly</button>
                     </div>
                 </div>
                 <div class="chart-placeholder">
                     <!-- In a real app, a canvas or SVG chart would go here -->
                     {{if .Stats.GraphData}}
-                    {{$max := .Stats.MaxDailyViews}}
+                    {{$max := .Stats.MaxViews}}
                     {{range .Stats.GraphData}}
                     <div class="bar" style="height: {{if eq $max 0}}0{{else}}calc({{.Count}} / {{$max}} * 100%){{end}}"
-                        title="{{.Day.Format " Jan 02"}}: {{.Count}} views"></div>
+                        title="{{.Time.Format " Jan 02"}}: {{.Count}} views"></div>
                     {{end}}
                     {{else}}
                     <p style="width: 100%; text-align: center; color: var(--text-secondary);">No data available</p>

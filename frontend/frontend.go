@@ -120,14 +120,15 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// graph data
-		graph, err := f.db.PageviewStorage().GetGraphData(r.Context(), selectedDomain.ID, start, end)
+		// TODO: hourly vs daily vs monthly
+		graph, err := f.db.PageviewStorage().GetHourlyStats(r.Context(), selectedDomain.ID, end.Add(-30*time.Hour), end)
 		if err != nil {
 			log.Printf("Failed to get graph data: %v", err)
 		} else {
 			stats.GraphData = graph
 			for _, d := range graph {
-				if d.Count > stats.MaxDailyViews {
-					stats.MaxDailyViews = d.Count
+				if d.Count > stats.MaxViews {
+					stats.MaxViews = d.Count
 				}
 			}
 		}

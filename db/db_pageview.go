@@ -122,26 +122,6 @@ func (db *DB) GetAggregatedStats(ctx context.Context, domainID string, start, en
 	return stats, nil
 }
 
-// TODO: remove this in favor of Get*Stats
-func (db *DB) GetGraphData(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.DailyPageview, error) {
-	// TODO: this should use rollups
-	var results []*pageview.DailyPageview
-
-	err := db.Db.NewSelect().
-		Model((*pageview.Pageview)(nil)).
-		ColumnExpr("date(ts) as day").
-		ColumnExpr("count(*) as count").
-		ColumnExpr("count(distinct visitor_id) as unique_visitors").
-		Where("domain_id = ?", domainID).
-		Where("ts >= ?", start).
-		Where("ts <= ?", end).
-		GroupExpr("day").
-		OrderExpr("day ASC").
-		Scan(ctx, &results)
-
-	return results, err
-}
-
 // TODO: need to rollup here too
 func (db *DB) GetTopPages(ctx context.Context, domainID string, start, end time.Time, limit int) ([]*pageview.PageStats, error) {
 	var stats []*pageview.PageStats
