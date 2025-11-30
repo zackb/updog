@@ -1,4 +1,5 @@
-- [ ] referrer is URL not host?!?
+- [ ] remove bounce rate from top pages
+- [x] referrer is URL not host?!?
 - [x] Top Pages broken
 - [x] path should be a dimension
 - [x] Quartz like scheduler for rollups

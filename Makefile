@@ -59,7 +59,7 @@ test:
 	go test ./...
 
 send-test:
-	curl -XPOST -i --data-binary '{"domain": "zackbartel.com", "ref": "google.com", "path": "/hello"}' --user-agent 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36' -H 'x-forwarded-for: 67.166.85.37' localhost:8080/view
+	curl -XPOST -i --data-binary '{"domain": "zackbartel.com", "ref": "https://bing.com/foo", "path": "/hello"}' --user-agent 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36' -H 'x-forwarded-for: 67.166.85.37' localhost:8080/view
 
 updatedeps:
 	go list -m -u all

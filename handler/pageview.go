@@ -97,7 +97,14 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher, gif bool) htt
 		language := &pageview.Language{Code: r.Header.Get("Accept-Language")}
 		_ = db.GetOrCreateDimension(r.Context(), d, language, "code", language.Code)
 
-		referrer := &pageview.Referrer{Host: req.Referrer}
+		referrerUrl, err := url.Parse(req.Referrer)
+		if err != nil {
+			log.Printf("Invalid referrer URL: %v", err)
+			req.Referrer = ""
+		} else {
+			req.Referrer = referrerUrl.Host
+		}
+		referrer := &pageview.Referrer{Host: referrerUrl.Host}
 		_ = db.GetOrCreateDimension(r.Context(), d, referrer, "host", referrer.Host)
 
 		path := &pageview.Path{Path: req.Path}
