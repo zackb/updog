@@ -268,40 +268,44 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
 
 func (db *DB) GetHourlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
 	var stats []*pageview.AggregatedPoint
+	timeExpr := db.dateTrunc("hour", "ts") // handles SQLite/Postgres
 
-	timeExpr := db.dateTrunc("hour", "pageview.ts") // fully qualified
+	query := fmt.Sprintf(`
+		WITH visitor_hourly AS (
+			SELECT
+				visitor_id,
+				%s AS hour,
+				COUNT(*) AS pv_count
+			FROM pageviews
+			WHERE domain_id = ? AND ts >= ? AND ts <= ?
+			GROUP BY visitor_id, hour
+		),
+		hourly_counts AS (
+			SELECT
+				%s AS hour,
+				COUNT(*) AS total_count,
+				COUNT(DISTINCT visitor_id) AS unique_visitors
+			FROM pageviews
+			WHERE domain_id = ? AND ts >= ? AND ts <= ?
+			GROUP BY hour
+		)
+		SELECT
+			hc.hour AS time,
+			hc.total_count AS count,
+			hc.unique_visitors AS unique_visitors,
+			SUM(CASE WHEN vh.pv_count = 1 THEN 1.0 ELSE 0 END) /
+				NULLIF(hc.unique_visitors, 0) AS bounce_rate
+		FROM hourly_counts hc
+		LEFT JOIN visitor_hourly vh
+			ON hc.hour = vh.hour
+		GROUP BY hc.hour, hc.total_count, hc.unique_visitors
+		ORDER BY hc.hour ASC;
+	`, timeExpr, timeExpr)
 
-	err := db.Db.NewSelect().
-		Model((*pageview.Pageview)(nil)).
-		ColumnExpr(timeExpr+" AS time").
-		ColumnExpr("COUNT(*) AS count").
-		ColumnExpr("COUNT(DISTINCT pageview.visitor_id) AS unique_visitors").
-		ColumnExpr(`
-			-- bounce rate = fraction of single-page visitors per hour
-			SUM(CASE WHEN visitor_pv.pv_count = 1 THEN 1.0 ELSE 0 END) / 
-			NULLIF(COUNT(DISTINCT pageview.visitor_id), 0) AS bounce_rate
-		`).
-		Join(`
-			LEFT JOIN (
-				SELECT
-					visitor_id,
-					domain_id,
-					`+db.dateTrunc("hour", "ts")+` AS hour,
-					COUNT(*) AS pv_count
-				FROM pageviews
-				WHERE domain_id = ? AND ts >= ? AND ts <= ?
-				GROUP BY visitor_id, domain_id, hour
-			) AS visitor_pv
-			ON pageview.visitor_id = visitor_pv.visitor_id
-			AND pageview.domain_id = visitor_pv.domain_id
-			AND `+timeExpr+` = visitor_pv.hour
-		`, domainID, start, end).
-		Where("pageview.domain_id = ?", domainID).
-		Where("pageview.ts >= ?", start).
-		Where("pageview.ts <= ?", end).
-		GroupExpr("time").
-		OrderExpr("time ASC").
-		Scan(ctx, &stats)
+	err := db.Db.NewRaw(query,
+		domainID, start, end, // visitor_hourly
+		domainID, start, end, // hourly_counts
+	).Scan(ctx, &stats)
 
 	return stats, err
 }
