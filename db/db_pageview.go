@@ -44,71 +44,79 @@ func (db *DB) ListPageviewsByDomainID(ctx context.Context, domainID string, star
 func (db *DB) GetAggregatedStats(ctx context.Context, domainID string, start, end time.Time) (*pageview.AggregatedStats, error) {
 	stats := &pageview.AggregatedStats{}
 
-	// cutoff is the start of the current day in UTC
 	now := time.Now().UTC()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 
-	// ensure we don't query beyond end if end is also before todayStart
+	// split historic vs live
 	historicEnd := end
 	if historicEnd.After(todayStart) {
-		historicEnd = todayStart.Add(-time.Nanosecond) // Just before today
+		historicEnd = todayStart.Add(-time.Nanosecond)
 	}
 
-	// ensure we start from todayStart at minimum for live data
 	liveStart := start
 	if liveStart.Before(todayStart) {
 		liveStart = todayStart
 	}
 
-	// historic
-	var historicTotal, historicUnique, historicBounces int64
+	// historic from daily_pageviews
+	var historic struct {
+		Total       int64 `bun:"total"`
+		UniqueCount int64 `bun:"unique_count"`
+		Bounces     int64 `bun:"bounces"`
+	}
+
 	if start.Before(todayStart) {
 		err := db.Db.NewSelect().
 			Model((*pageview.DailyPageview)(nil)).
-			ColumnExpr("sum(count)").
-			ColumnExpr("sum(unique_visitors)").
-			ColumnExpr("sum(bounces)").
+			ColumnExpr("SUM(count) AS total").
+			ColumnExpr("SUM(unique_visitors) AS unique_count").
+			ColumnExpr("SUM(bounces) AS bounces").
 			Where("domain_id = ?", domainID).
 			Where("day >= ?", start).
 			Where("day <= ?", historicEnd).
-			Scan(ctx, &historicTotal, &historicUnique, &historicBounces)
+			Scan(ctx, &historic)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("reading historic stats: %w", err)
 		}
 	}
 
-	// live
-	var liveTotal, liveUnique, liveBounces int64
+	// live from pageviews
+	var live struct {
+		Total       int64 `bun:"total"`
+		UniqueCount int64 `bun:"unique_count"`
+		Bounces     int64 `bun:"bounces"`
+	}
+
 	if end.After(todayStart) || end.Equal(todayStart) {
 		subq := db.Db.NewSelect().
 			Model((*pageview.Pageview)(nil)).
 			Column("visitor_id").
-			ColumnExpr("COUNT(*) as pv_count").
+			ColumnExpr("COUNT(*) AS pv_count").
+			Where("domain_id = ?", domainID).
 			Where("ts >= ?", liveStart).
 			Where("ts <= ?", end).
 			Group("visitor_id")
 
 		err := db.Db.NewSelect().
-			Model((*pageview.Pageview)(nil)).
-			ColumnExpr("count(*)").
-			ColumnExpr("count(distinct pageview.visitor_id)").
-			ColumnExpr("SUM(CASE WHEN visitor_pageviews.pv_count = 1 THEN 1 ELSE 0 END)").
-			Join("LEFT JOIN (?) AS visitor_pageviews ON pageview.visitor_id = visitor_pageviews.visitor_id", subq).
-			Where("domain_id = ?", domainID).
-			Where("ts >= ?", liveStart).
-			Where("ts <= ?", end).
-			Scan(ctx, &liveTotal, &liveUnique, &liveBounces)
+			TableExpr("(?) AS t", subq).
+			ColumnExpr("SUM(pv_count) AS total").
+			ColumnExpr("COUNT(*) AS unique_count").
+			ColumnExpr("SUM(CASE WHEN pv_count = 1 THEN 1 ELSE 0 END) AS bounces").
+			Scan(ctx, &live)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("reading live stats: %w", err)
 		}
 	}
 
-	stats.TotalPageviews = historicTotal + liveTotal
-	stats.UniqueVisitors = historicUnique + liveUnique
-	totalBounces := historicBounces + liveBounces
+	// combine and compute float bounce rate
+	stats.TotalPageviews = historic.Total + live.Total
+	stats.UniqueVisitors = historic.UniqueCount + live.UniqueCount
+	totalBounces := historic.Bounces + live.Bounces
 
 	if stats.UniqueVisitors > 0 {
 		stats.BounceRate = float64(totalBounces) / float64(stats.UniqueVisitors)
+	} else {
+		stats.BounceRate = 0
 	}
 
 	return stats, nil

@@ -44,7 +44,7 @@
                 </div>
                 <div class="stat-details">
                     <h3>Bounce Rate</h3>
-                    <p class="value">0</p>
+                    <p class="value">{{if .Stats.Aggregated}}{{.Stats.Aggregated.BounceRate}}{{else}}0{{end}}</p>
                     <span class="trend negative">
                         <i class="fa-solid fa-arrow-down"></i> 2.1%
                     </span>
