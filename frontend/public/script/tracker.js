@@ -1,13 +1,13 @@
 (function(window){
-  var CONFIG = {endpoint: 'https://updog.bartel.com/view'};
+  var CONFIG = {endpoint: 'https://updog.bartel.com'};
 
   function trackPageview(data){
     if(navigator.sendBeacon){
-      try { navigator.sendBeacon(CONFIG.endpoint, JSON.stringify(data)); return; }
+      try { navigator.sendBeacon(CONFIG.endpoint + '/view', JSON.stringify(data)); return; }
       catch(e){ /* fallback below */ }
     }
     var img = new Image();
-    img.src = CONFIG.endpoint.replace(/\/view$/,'/view.gif') +
+    img.src = CONFIG.endpoint + '/view.gif' +
               '?domain=' + encodeURIComponent(data.domain) +
               '&path=' + encodeURIComponent(data.path) +
               '&ref=' + encodeURIComponent(data.ref);
