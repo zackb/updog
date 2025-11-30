@@ -16,6 +16,7 @@ import (
 	"github.com/zackb/updog/domain"
 	"github.com/zackb/updog/env"
 	"github.com/zackb/updog/pageview"
+	"github.com/zackb/updog/settings"
 	"github.com/zackb/updog/user"
 )
 
@@ -78,6 +79,10 @@ func (db *DB) PageviewStorage() pageview.Storage {
 	return db
 }
 
+func (db *DB) SettingsStorage() settings.Storage {
+	return db
+}
+
 func setupDB(sqldb *sql.DB, db *bun.DB) (*DB, error) {
 	ctx := context.Background()
 
@@ -109,6 +114,7 @@ func CreateTables(db *bun.DB) error {
 	models := []any{
 		(*user.User)(nil),
 		(*domain.Domain)(nil),
+		(*settings.Settings)(nil),
 		(*pageview.Country)(nil),
 		(*pageview.Region)(nil),
 		(*pageview.Browser)(nil),
