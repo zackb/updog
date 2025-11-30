@@ -90,19 +90,18 @@ type Pageview struct {
 	Language   *Language        `bun:"rel:belongs-to,join:language_id=id"`
 	Referrer   *Referrer        `bun:"rel:belongs-to,join:referrer_id=id"`
 }
-
 type DailyPageview struct {
 	bun.BaseModel `bun:"table:daily_pageviews"`
 
 	Day          time.Time `bun:",pk,type:date"`
-	DomainID     string    `bun:"domain_id,notnull"`
-	CountryID    int64     `bun:"country_id"`
-	RegionID     int64     `bun:"region_id"`
-	BrowserID    int64     `bun:"browser_id"`
-	OSID         int64     `bun:"os_id"`
-	DeviceTypeID int64     `bun:"device_type_id"`
-	LanguageID   int64     `bun:"language_id"`
-	ReferrerID   int64     `bun:"referrer_id"`
+	DomainID     string    `bun:",pk,notnull"`
+	CountryID    int64     `bun:",pk"`
+	RegionID     int64     `bun:",pk"`
+	BrowserID    int64     `bun:",pk"`
+	OSID         int64     `bun:"os_id,pk"`
+	DeviceTypeID int64     `bun:",pk"`
+	LanguageID   int64     `bun:",pk"`
+	ReferrerID   int64     `bun:",pk"`
 
 	Count          int64 `bun:"count,notnull"`
 	UniqueVisitors int64 `bun:"unique_visitors"`

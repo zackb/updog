@@ -12,7 +12,7 @@ type Storage interface {
 	GetGraphData(ctx context.Context, domainID string, start, end time.Time) ([]*DailyPageview, error)
 	GetTopPages(ctx context.Context, domainID string, start, end time.Time, limit int) ([]*PageStats, error)
 	GetDeviceUsage(ctx context.Context, domainID string, start, end time.Time) ([]*DeviceStats, error)
-	RunDailyRollup(ctx context.Context) error
+	RunDailyRollup(ctx context.Context, dayStart time.Time) error
 
 	GetHourlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*AggregatedPoint, error)
 	GetDailyStats(ctx context.Context, domainID string, start, end time.Time) ([]*AggregatedPoint, error)

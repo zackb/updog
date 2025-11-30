@@ -187,13 +187,15 @@ func (db *DB) GetDeviceUsage(ctx context.Context, domainID string, start, end ti
 	return stats, nil
 }
 
-func (db *DB) RunDailyRollup(ctx context.Context) error {
-	// yesterday in UTC
-	dayStart := time.Now().UTC().AddDate(0, 0, -1)
+func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
+	// normalize to UTC start of day
+	dayStart = dayStart.UTC()
 	dayStart = time.Date(dayStart.Year(), dayStart.Month(), dayStart.Day(), 0, 0, 0, 0, time.UTC)
 	dayEnd := dayStart.Add(24 * time.Hour)
 
-	_, err := db.Db.ExecContext(ctx, `
+	dayExpr := db.dateTrunc("day", "pageview.ts") // fully qualified
+
+	_, err := db.Db.ExecContext(ctx, fmt.Sprintf(`
         INSERT INTO daily_pageviews (
             day,
             domain_id,
@@ -205,68 +207,98 @@ func (db *DB) RunDailyRollup(ctx context.Context) error {
             language_id,
             referrer_id,
             count,
-			unique_visitors,
-			bounces
+            unique_visitors,
+            bounces
         )
         SELECT
-            date_trunc('day', ts) AS day,
-            domain_id,
-            country_id,
-            region_id,
-            browser_id,
-            os_id,
-            device_type_id,
-            language_id,
-            referrer_id,
+            %s AS day,
+            pageview.domain_id,
+            pageview.country_id,
+            pageview.region_id,
+            pageview.browser_id,
+            pageview.os_id,
+            pageview.device_type_id,
+            pageview.language_id,
+            pageview.referrer_id,
             COUNT(*) AS count,
-			COUNT(DISTINCT visitor_id) AS unique_visitors,
-			SUM(CASE WHEN visitor_pageviews.pv_count = 1 THEN 1 ELSE 0 END) AS bounces
-        FROM pageviews
-		LEFT JOIN (
-			SELECT visitor_id, COUNT(*) as pv_count
-			FROM pageviews
-			WHERE ts >= ? AND ts < ?
-			GROUP BY visitor_id
-		) AS visitor_pageviews ON pageviews.visitor_id = visitor_pageviews.visitor_id
-        WHERE ts >= ? AND ts < ?
-        GROUP BY domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id
+            COUNT(DISTINCT pageview.visitor_id) AS unique_visitors,
+            -- bounces as fraction of single-page visitors
+            SUM(CASE WHEN visitor_pv.pv_count = 1 THEN 1.0 ELSE 0 END) / 
+                NULLIF(COUNT(DISTINCT pageview.visitor_id), 0) AS bounces
+        FROM pageviews AS pageview
+        LEFT JOIN (
+            SELECT
+                visitor_id,
+                domain_id,
+                country_id,
+                region_id,
+                browser_id,
+                os_id,
+                device_type_id,
+                language_id,
+                referrer_id,
+                `+db.dateTrunc("day", "ts")+` AS day,
+                COUNT(*) AS pv_count
+            FROM pageviews
+            WHERE ts >= ? AND ts < ?
+            GROUP BY visitor_id, domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, day
+        ) AS visitor_pv
+        ON pageview.visitor_id = visitor_pv.visitor_id
+        AND pageview.domain_id = visitor_pv.domain_id
+        AND pageview.country_id = visitor_pv.country_id
+        AND pageview.region_id = visitor_pv.region_id
+        AND pageview.browser_id = visitor_pv.browser_id
+        AND pageview.os_id = visitor_pv.os_id
+        AND pageview.device_type_id = visitor_pv.device_type_id
+        AND pageview.language_id = visitor_pv.language_id
+        AND pageview.referrer_id = visitor_pv.referrer_id
+        AND %s = visitor_pv.day
+        WHERE pageview.ts >= ? AND pageview.ts < ?
+        GROUP BY pageview.domain_id, pageview.country_id, pageview.region_id, pageview.browser_id,
+                 pageview.os_id, pageview.device_type_id, pageview.language_id, pageview.referrer_id, %s
         ON CONFLICT (day, domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id)
-        DO UPDATE SET count = EXCLUDED.count, unique_visitors = EXCLUDED.unique_visitors, bounces = EXCLUDED.bounces;
-    `, dayStart, dayEnd, dayStart, dayEnd)
+        DO UPDATE SET
+            count = EXCLUDED.count,
+            unique_visitors = EXCLUDED.unique_visitors,
+            bounces = EXCLUDED.bounces;
+    `, dayExpr, dayExpr, dayExpr), dayStart, dayEnd, dayStart, dayEnd)
 
 	return err
-
 }
 
 func (db *DB) GetHourlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
 	var stats []*pageview.AggregatedPoint
 
-	timeExpr := db.dateTrunc("hour", "ts")
+	timeExpr := db.dateTrunc("hour", "pageview.ts") // fully qualified
 
 	err := db.Db.NewSelect().
 		Model((*pageview.Pageview)(nil)).
 		ColumnExpr(timeExpr+" AS time").
 		ColumnExpr("COUNT(*) AS count").
-		ColumnExpr("COUNT(DISTINCT visitor_id) AS unique_visitors").
+		ColumnExpr("COUNT(DISTINCT pageview.visitor_id) AS unique_visitors").
 		ColumnExpr(`
-		    (
-		        SELECT 
-		            1.0 * SUM(CASE WHEN cnt = 1 THEN 1 ELSE 0 END)
-		            / NULLIF(COUNT(*), 0)
-		        FROM (
-		            SELECT visitor_id, COUNT(*) AS cnt
-		            FROM pageviews pv2
-		            WHERE pv2.domain_id = ?
-		              AND pv2.ts >= ?
-		              AND pv2.ts <= ?
-		              AND `+db.dateTrunc("hour", "pv2.ts")+` = `+timeExpr+`
-		            GROUP BY visitor_id
-		        ) AS hourly_sessions
-		    ) AS bounce_rate
+			-- bounce rate = fraction of single-page visitors per hour
+			SUM(CASE WHEN visitor_pv.pv_count = 1 THEN 1.0 ELSE 0 END) / 
+			NULLIF(COUNT(DISTINCT pageview.visitor_id), 0) AS bounce_rate
+		`).
+		Join(`
+			LEFT JOIN (
+				SELECT
+					visitor_id,
+					domain_id,
+					`+db.dateTrunc("hour", "ts")+` AS hour,
+					COUNT(*) AS pv_count
+				FROM pageviews
+				WHERE domain_id = ? AND ts >= ? AND ts <= ?
+				GROUP BY visitor_id, domain_id, hour
+			) AS visitor_pv
+			ON pageview.visitor_id = visitor_pv.visitor_id
+			AND pageview.domain_id = visitor_pv.domain_id
+			AND `+timeExpr+` = visitor_pv.hour
 		`, domainID, start, end).
-		Where("domain_id = ?", domainID).
-		Where("ts >= ?", start).
-		Where("ts <= ?", end).
+		Where("pageview.domain_id = ?", domainID).
+		Where("pageview.ts >= ?", start).
+		Where("pageview.ts <= ?", end).
 		GroupExpr("time").
 		OrderExpr("time ASC").
 		Scan(ctx, &stats)
