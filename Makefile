@@ -52,6 +52,9 @@ docker: docker-local
 jwk-key-dev:
 	go run cmd/jwk/jwk.go -c > jwks.json
 
+deploy: build
+	rsync updog root@updog.bartel.com:/updog/
+
 test:
 	go test ./...
 

@@ -21,12 +21,24 @@ type PageviewRequest struct {
 }
 
 // Handler handles incoming pageview tracking requests.
-func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher) http.HandlerFunc {
+func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher, gif bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		var req PageviewRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			httpx.JSONError(w, "invalid JSON", http.StatusBadRequest)
+
+		if r.Method == http.MethodPost {
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				httpx.JSONError(w, "invalid JSON", http.StatusBadRequest)
+				return
+			}
+		} else {
+			req.Domain = r.URL.Query().Get("domain")
+			req.Path = r.URL.Query().Get("path")
+			req.Referrer = r.URL.Query().Get("ref")
+		}
+
+		if req.Domain == "" || req.Path == "" {
+			httpx.JSONError(w, "missing required parameters", http.StatusBadRequest)
 			return
 		}
 
@@ -108,6 +120,22 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher) http.HandlerF
 			return
 		}
 
-		w.WriteHeader(http.StatusNoContent)
+		if gif {
+			w.Header().Set("Content-Type", "image/gif")
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			w.Write([]byte{
+				0x47, 0x49, 0x46, 0x38, 0x39, 0x61,
+				0x01, 0x00, 0x01, 0x00,
+				0x80, 0x00, 0x00,
+				0x00, 0x00, 0x00,
+				0xFF, 0xFF, 0xFF,
+				0x21, 0xF9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00,
+				0x2C, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
+				0x02, 0x02, 0x44, 0x01, 0x00, 0x3B,
+			})
+		} else {
+
+			w.WriteHeader(http.StatusNoContent)
+		}
 	}
 }

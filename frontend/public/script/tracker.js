@@ -2,51 +2,60 @@
     'use strict';
 
     var CONFIG = {
-      endpoint: 'https://updog.bartel.com/view',
+        endpoint: 'https://updog.bartel.com/view'
     };
 
-    /**
-     * Send pageview data to the server
-     */
+    function trackViaBeacon(data) {
+        if (navigator.sendBeacon) {
+            try {
+                navigator.sendBeacon(CONFIG.endpoint, JSON.stringify(data));
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    function trackViaPixel(data) {
+        var url = CONFIG.endpoint.replace(/\/view$/, '/view.gif') +
+            '?domain=' + encodeURIComponent(data.domain) +
+            '&path=' + encodeURIComponent(data.path) +
+            '&ref=' + encodeURIComponent(data.ref);
+
+        var img = new Image();
+        img.src = url;
+    }
+
     function trackPageview() {
-        var payload = {
+        var data = {
             domain: window.location.hostname,
             path: window.location.pathname,
             ref: document.referrer
         };
 
-        // Use sendBeacon if available for reliable delivery
-        if (navigator.sendBeacon) {
-            navigator.sendBeacon(CONFIG.endpoint, JSON.stringify(payload));
-        } else {
-            // Fallback for older browsers
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', CONFIG.endpoint, true);
-            xhr.setRequestHeader('Content-Type', 'text/plain;charset=UTF-8');
-            xhr.send(JSON.stringify(payload));
+        // Try sendBeacon first; fallback to pixel
+        if (!trackViaBeacon(data)) {
+            trackViaPixel(data);
         }
     }
 
-    // Track initial page load
+    // Track initial load
     if (document.readyState === 'complete') {
         trackPageview();
     } else {
         window.addEventListener('load', trackPageview);
     }
 
-    // Handle SPA navigation (History API)
-    var history = window.history;
+    // SPA support: override pushState
     var pushState = history.pushState;
-
-    // Override pushState to track changes
     history.pushState = function () {
         pushState.apply(history, arguments);
         trackPageview();
     };
 
-    // Listen for popstate events (back/forward button)
-    window.addEventListener('popstate', function () {
-        trackPageview();
-    });
+    // Back/forward buttons
+    window.addEventListener('popstate', trackPageview);
 
 })(window, document);
+

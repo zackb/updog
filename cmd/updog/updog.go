@@ -44,7 +44,8 @@ func main() {
 	// create http server
 	server := serve.NewHTTPServer(func(mux *http.ServeMux) {
 		frontend.Routes(mux)
-		mux.Handle("/view", handler.Handler(store, store, enricher))
+		mux.Handle("/view", handler.Handler(store, store, enricher, false))
+		mux.Handle("/view.gif", handler.Handler(store, store, enricher, true))
 		mux.Handle("/api/", api.Routes())
 	})
 
