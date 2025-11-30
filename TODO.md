@@ -2,7 +2,7 @@
 - [x] Quartz like scheduler for rollups
 - [ ] "Pages" section with detailed pageview analytics
 - [ ] add top referrers to dashboard
-- [-] move Device Usage to Time
+- [ ] Do something about "time on page"
 - [ ] htmx and api to remove GraphData
 - [ ] docker fix for js and tls certs
 - [ ] helm deployment
