@@ -44,7 +44,7 @@
                 </div>
                 <div class="stat-details">
                     <h3>Bounce Rate</h3>
-                    <p class="value">{{if .Stats.Aggregated}}{{.Stats.Aggregated.BounceRate}}{{else}}0{{end}}</p>
+                    <p class="value">{{if .Stats.Aggregated}}{{printf "%.1f%%" (mul .Stats.Aggregated.BounceRate 100)}}{{else}}0{{end}}</p>
                     <span class="trend negative">
                         <i class="fa-solid fa-arrow-down"></i> 2.1%
                     </span>
@@ -197,7 +197,7 @@
                             </td>
                             <td>{{.Count}}</td>
                             <td>{{.UniqueCount}}</td>
-                            <td>{{printf "%.1f" .BounceRate}}%</td>
+                            <td>{{printf "%.1f%%" (mul .BounceRate 100)}}</td>
                         </tr>
                         {{else}}
                         <tr>
