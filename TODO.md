@@ -1,3 +1,4 @@
+- [ ] Quartz like scheduler for rollups
 - [ ] "Pages" section with detailed pageview analytics
 - [ ] add top referrers to dashboard
 - [ ] move Device Usage to Time
