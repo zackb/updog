@@ -444,6 +444,7 @@ func (f *Frontend) join(w http.ResponseWriter, r *http.Request) {
 	disableSignups, err := f.db.ReadValueAsBool(r.Context(), settings.SettingDisableSignups)
 
 	if err != nil {
+		log.Printf("Failed to read settings: %v", err)
 		data.Error = "Failed to load settings"
 	}
 

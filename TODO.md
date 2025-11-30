@@ -1,3 +1,5 @@
+- [ ] referrer is URL not host?!?
+- [ ] Top Pages broken
 - [ ] path should be a dimension
 - [x] Quartz like scheduler for rollups
 - [ ] "Pages" section with detailed pageview analytics

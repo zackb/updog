@@ -2,6 +2,8 @@ package db
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/zackb/updog/settings"
@@ -21,15 +23,23 @@ func (d *DB) ReadSettings(ctx context.Context, id string) (*settings.Settings, e
 
 func (d *DB) ReadValue(ctx context.Context, key string) (string, error) {
 	s, err := d.ReadSettings(ctx, key)
+
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
 		return "", err
 	}
+
 	return s.Value, nil
 }
 
 func (d *DB) ReadValueAsBool(ctx context.Context, key string) (bool, error) {
 	s, err := d.ReadSettings(ctx, key)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
 		return false, err
 	}
 	return s.Value == "true", nil
