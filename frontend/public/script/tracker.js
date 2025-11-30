@@ -2,7 +2,7 @@
     'use strict';
 
     var CONFIG = {
-      endpoint: 'http://localhost:8080/view',
+      endpoint: 'https://updog.bartel.com/view',
     };
 
     /**
