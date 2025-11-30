@@ -127,23 +127,16 @@ func (db *DB) GetTopPages(ctx context.Context, domainID string, start, end time.
 
 	var stats []*pageview.PageStats
 
-	vs := db.Db.NewSelect().
-		Table("pageviews").
-		ColumnExpr("visitor_id, path_id, COUNT(*) AS pageviews").
-		Where("domain_id = ?", domainID).
-		Where("ts >= ?", start).
-		Where("ts <= ?", end).
-		Group("visitor_id, path_id")
-
 	err := db.Db.NewSelect().
-		With("vs", vs).
-		Table("vs").
+		Table("pageviews").
 		ColumnExpr("path.path AS path").
 		ColumnExpr("COUNT(*) AS count").
-		ColumnExpr("COUNT(DISTINCT vs.visitor_id) AS unique_count").
-		ColumnExpr("SUM(CASE WHEN vs.pageviews = 1 THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(DISTINCT vs.visitor_id),0) AS bounce_rate").
-		Join("JOIN paths AS path ON path.id = vs.path_id").
-		Group("path.path").
+		ColumnExpr("COUNT(DISTINCT visitor_id) AS unique_count").
+		Join("JOIN paths AS path ON path.id = pageviews.path_id").
+		Where("pageviews.domain_id = ?", domainID).
+		Where("pageviews.ts >= ?", start).
+		Where("pageviews.ts <= ?", end).
+		GroupExpr("path.id, path.path").
 		Order("count DESC").
 		Limit(limit).
 		Scan(ctx, &stats)
