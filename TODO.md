@@ -1,0 +1,6 @@
+- [ ] "Pages" section with detailed pageview analytics
+- [ ] add top referrers to dashboard
+- [ ] move Device Usage to Time
+- [ ] htmx and api to remove GraphData
+- [ ] docker fix for js and tls certs
+- [ ] helm deployment
