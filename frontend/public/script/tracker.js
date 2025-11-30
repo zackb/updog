@@ -1,61 +1,51 @@
-(function (window, document) {
-    'use strict';
+(function(window){
+  var CONFIG = {endpoint: 'https://updog.bartel.com/view'};
 
-    var CONFIG = {
-        endpoint: 'https://updog.bartel.com/view'
+  function trackPageview(data){
+    if(navigator.sendBeacon){
+      try { navigator.sendBeacon(CONFIG.endpoint, JSON.stringify(data)); return; }
+      catch(e){ /* fallback below */ }
+    }
+    var img = new Image();
+    img.src = CONFIG.endpoint.replace(/\/view$/,'/view.gif') +
+              '?domain=' + encodeURIComponent(data.domain) +
+              '&path=' + encodeURIComponent(data.path) +
+              '&ref=' + encodeURIComponent(data.ref);
+  }
+
+  // Process queued events
+  (window._uaq || []).forEach(function(args){
+    if(args[0]==='pageview') trackPageview(args[1]);
+    else if(args[0]==='config') Object.assign(CONFIG, args[1]);
+  });
+
+  // Override push for future events
+  window._uaq.push = function(args){
+    if(args[0]==='pageview') trackPageview(args[1]);
+    else if(args[0]==='config') Object.assign(CONFIG, args[1]);
+  };
+
+  // SPA
+  (function(history){
+    var push = history.pushState;
+    history.pushState = function(){
+      push.apply(history, arguments);
+      window._uaq.push(['pageview', {
+        domain: location.hostname,
+        path: location.pathname,
+        ref: document.referrer
+      }]);
     };
+  })(history);
 
-    function trackViaBeacon(data) {
-        if (navigator.sendBeacon) {
-            try {
-                navigator.sendBeacon(CONFIG.endpoint, JSON.stringify(data));
-                return true;
-            } catch (e) {
-                return false;
-            }
-        }
-        return false;
-    }
+  // Back/forward navigation
+  window.addEventListener('popstate', function(){
+    window._uaq.push(['pageview', {
+      domain: location.hostname,
+      path: location.pathname,
+      ref: document.referrer
+    }]);
+  });
 
-    function trackViaPixel(data) {
-        var url = CONFIG.endpoint.replace(/\/view$/, '/view.gif') +
-            '?domain=' + encodeURIComponent(data.domain) +
-            '&path=' + encodeURIComponent(data.path) +
-            '&ref=' + encodeURIComponent(data.ref);
-
-        var img = new Image();
-        img.src = url;
-    }
-
-    function trackPageview() {
-        var data = {
-            domain: window.location.hostname,
-            path: window.location.pathname,
-            ref: document.referrer
-        };
-
-        // Try sendBeacon first; fallback to pixel
-        if (!trackViaBeacon(data)) {
-            trackViaPixel(data);
-        }
-    }
-
-    // Track initial load
-    if (document.readyState === 'complete') {
-        trackPageview();
-    } else {
-        window.addEventListener('load', trackPageview);
-    }
-
-    // SPA support: override pushState
-    var pushState = history.pushState;
-    history.pushState = function () {
-        pushState.apply(history, arguments);
-        trackPageview();
-    };
-
-    // Back/forward buttons
-    window.addEventListener('popstate', trackPageview);
-
-})(window, document);
+})(window);
 
