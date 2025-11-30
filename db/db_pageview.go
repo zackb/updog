@@ -124,17 +124,26 @@ func (db *DB) GetAggregatedStats(ctx context.Context, domainID string, start, en
 
 // TODO: need to rollup here too
 func (db *DB) GetTopPages(ctx context.Context, domainID string, start, end time.Time, limit int) ([]*pageview.PageStats, error) {
+
 	var stats []*pageview.PageStats
 
-	err := db.Db.NewSelect().
-		Model((*pageview.Pageview)(nil)).
-		Column("path").
-		ColumnExpr("count(*) as count").
-		ColumnExpr("count(distinct visitor_id) as unique_count").
+	vs := db.Db.NewSelect().
+		Table("pageviews").
+		ColumnExpr("visitor_id, path_id, COUNT(*) AS pageviews").
 		Where("domain_id = ?", domainID).
 		Where("ts >= ?", start).
 		Where("ts <= ?", end).
-		Group("path").
+		Group("visitor_id, path_id")
+
+	err := db.Db.NewSelect().
+		With("vs", vs).
+		Table("vs").
+		ColumnExpr("path.path AS path").
+		ColumnExpr("COUNT(*) AS count").
+		ColumnExpr("COUNT(DISTINCT vs.visitor_id) AS unique_count").
+		ColumnExpr("SUM(CASE WHEN vs.pageviews = 1 THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(DISTINCT vs.visitor_id),0) AS bounce_rate").
+		Join("JOIN paths AS path ON path.id = vs.path_id").
+		Group("path.path").
 		Order("count DESC").
 		Limit(limit).
 		Scan(ctx, &stats)
@@ -196,6 +205,7 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
             device_type_id,
             language_id,
             referrer_id,
+			path_id,
             count,
             unique_visitors,
             bounces
@@ -210,6 +220,7 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
             pageview.device_type_id,
             pageview.language_id,
             pageview.referrer_id,
+			pageview.path_id,
             COUNT(*) AS count,
             COUNT(DISTINCT pageview.visitor_id) AS unique_visitors,
             -- bounces as fraction of single-page visitors
@@ -227,11 +238,12 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
                 device_type_id,
                 language_id,
                 referrer_id,
+				path_id,
                 `+db.dateTrunc("day", "ts")+` AS day,
                 COUNT(*) AS pv_count
             FROM pageviews
             WHERE ts >= ? AND ts < ?
-            GROUP BY visitor_id, domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, day
+            GROUP BY visitor_id, domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, path_id, day
         ) AS visitor_pv
         ON pageview.visitor_id = visitor_pv.visitor_id
         AND pageview.domain_id = visitor_pv.domain_id
@@ -242,11 +254,12 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
         AND pageview.device_type_id = visitor_pv.device_type_id
         AND pageview.language_id = visitor_pv.language_id
         AND pageview.referrer_id = visitor_pv.referrer_id
+		AND pageview.path_id = visitor_pv.path_id
         AND %s = visitor_pv.day
         WHERE pageview.ts >= ? AND pageview.ts < ?
         GROUP BY pageview.domain_id, pageview.country_id, pageview.region_id, pageview.browser_id,
-                 pageview.os_id, pageview.device_type_id, pageview.language_id, pageview.referrer_id, %s
-        ON CONFLICT (day, domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id)
+                 pageview.os_id, pageview.device_type_id, pageview.language_id, pageview.referrer_id, path_id, %s
+        ON CONFLICT (day, domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, path_id)
         DO UPDATE SET
             count = EXCLUDED.count,
             unique_visitors = EXCLUDED.unique_visitors,

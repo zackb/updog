@@ -60,14 +60,19 @@ type Referrer struct {
 	Host string `bun:",unique,notnull"` // only the hostname
 }
 
+type Path struct {
+	bun.BaseModel `bun:"table:paths"`
+
+	ID   int64  `bun:",pk,autoincrement"`
+	Path string `bun:",unique,notnull"`
+}
+
 type Pageview struct {
 	bun.BaseModel `bun:"table:pageviews"`
 
 	ID int64 `bun:",pk,autoincrement"`
 
 	Timestamp time.Time `bun:"ts,notnull,default:current_timestamp"`
-
-	Path string `bun:",notnull"`
 
 	// dimensions
 	DomainID     string `bun:"domain_id,notnull"`
@@ -79,6 +84,7 @@ type Pageview struct {
 	LanguageID   int64  `bun:"language_id"`
 	ReferrerID   int64  `bun:"referrer_id"`
 	VisitorID    int64  `bun:"visitor_id,notnull"`
+	PathID       int64  `bun:"path_id"`
 
 	// relations
 	Domain     *domain.Domain   `bun:"rel:belongs-to,join:domain_id=id"`
@@ -89,7 +95,9 @@ type Pageview struct {
 	DeviceType *DeviceType      `bun:"rel:belongs-to,join:device_type_id=id"`
 	Language   *Language        `bun:"rel:belongs-to,join:language_id=id"`
 	Referrer   *Referrer        `bun:"rel:belongs-to,join:referrer_id=id"`
+	Path       *Path            `bun:"rel:belongs-to,join:path_id=id"`
 }
+
 type DailyPageview struct {
 	bun.BaseModel `bun:"table:daily_pageviews"`
 
@@ -102,6 +110,7 @@ type DailyPageview struct {
 	DeviceTypeID int64     `bun:",pk"`
 	LanguageID   int64     `bun:",pk"`
 	ReferrerID   int64     `bun:",pk"`
+	PathID       int64     `bun:",pk"`
 
 	Count          int64 `bun:"count,notnull"`
 	UniqueVisitors int64 `bun:"unique_visitors"`
@@ -116,6 +125,7 @@ type DailyPageview struct {
 	DeviceType *DeviceType      `bun:"rel:belongs-to,join:device_type_id=id"`
 	Language   *Language        `bun:"rel:belongs-to,join:language_id=id"`
 	Referrer   *Referrer        `bun:"rel:belongs-to,join:referrer_id=id"`
+	Path       *Path            `bun:"rel:belongs-to,join:path_id=id"`
 }
 
 type PageStats struct {

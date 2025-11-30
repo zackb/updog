@@ -122,6 +122,7 @@ func CreateTables(db *bun.DB) error {
 		(*pageview.DeviceType)(nil),
 		(*pageview.Language)(nil),
 		(*pageview.Referrer)(nil),
+		(*pageview.Path)(nil),
 		(*pageview.Pageview)(nil),
 		(*pageview.DailyPageview)(nil),
 	}

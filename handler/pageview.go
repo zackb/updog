@@ -100,10 +100,13 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher, gif bool) htt
 		referrer := &pageview.Referrer{Host: req.Referrer}
 		_ = db.GetOrCreateDimension(r.Context(), d, referrer, "host", referrer.Host)
 
+		path := &pageview.Path{Path: req.Path}
+		_ = db.GetOrCreateDimension(r.Context(), d, path, "path", path.Path)
+
 		// Insert Pageview
 		pv := &pageview.Pageview{
 			DomainID:     dsomain.ID,
-			Path:         req.Path,
+			PathID:       path.ID,
 			CountryID:    country.ID,
 			RegionID:     region.ID,
 			BrowserID:    browser.ID,
