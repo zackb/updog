@@ -142,6 +142,7 @@ func (db *DB) GetGraphData(ctx context.Context, domainID string, start, end time
 	return results, err
 }
 
+// TODO: need to rollup here too
 func (db *DB) GetTopPages(ctx context.Context, domainID string, start, end time.Time, limit int) ([]*pageview.PageStats, error) {
 	var stats []*pageview.PageStats
 
@@ -161,6 +162,7 @@ func (db *DB) GetTopPages(ctx context.Context, domainID string, start, end time.
 	return stats, err
 }
 
+// TODO: need to rollup here too
 func (db *DB) GetDeviceUsage(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.DeviceStats, error) {
 	var stats []*pageview.DeviceStats
 
