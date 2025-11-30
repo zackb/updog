@@ -95,25 +95,11 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get user's domains
-	domains, err := f.db.DomainStorage().ListDomainsByUser(r.Context(), user.ID)
+	domains, selectedDomain, err := f.getDomainsAndSelected(r, user)
 	if err != nil {
 		log.Printf("Failed to list domains: %v", err)
 		http.Error(w, "Failed to load dashboard", http.StatusInternalServerError)
 		return
-	}
-
-	// get selected domain - first verified domain, or first domain, or nil
-	var selectedDomain *domain.Domain
-	for _, d := range domains {
-		if d.Verified {
-			selectedDomain = d
-			break
-		}
-	}
-
-	if selectedDomain == nil && len(domains) > 0 {
-		selectedDomain = domains[0]
 	}
 
 	// fetch pageview stats for selected domain
@@ -164,10 +150,11 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := PageData{
-		Title: "Dashboard",
-		User:  user,
-		Stats: stats,
-		Slug:  "dashboard",
+		Title:   "Dashboard",
+		User:    user,
+		Stats:   stats,
+		Slug:    "dashboard",
+		Domains: domains,
 	}
 
 	if err := tmpl.ExecuteTemplate(w, "dashboard.html", data); err != nil {
@@ -183,10 +170,19 @@ func (f *Frontend) realtime(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	domains, selectedDomain, err := f.getDomainsAndSelected(r, user)
+	if err != nil {
+		log.Printf("Failed to list domains: %v", err)
+	}
+
 	data := PageData{
-		Title: "Real-time",
-		User:  user,
-		Slug:  "realtime",
+		Title:   "Real-time",
+		User:    user,
+		Slug:    "realtime",
+		Domains: domains,
+		Stats: &DashboardStats{
+			SelectedDomain: selectedDomain,
+		},
 	}
 
 	if err := tmpl.ExecuteTemplate(w, "realtime.html", data); err != nil {
@@ -230,7 +226,7 @@ func (f *Frontend) domains(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// GET list domains
-	domains, err := f.db.DomainStorage().ListDomainsByUser(r.Context(), user.ID)
+	domains, selectedDomain, err := f.getDomainsAndSelected(r, user)
 	if err != nil {
 		log.Printf("Failed to list domains: %v", err)
 		http.Error(w, "Failed to list domains", http.StatusInternalServerError)
@@ -242,6 +238,9 @@ func (f *Frontend) domains(w http.ResponseWriter, r *http.Request) {
 		User:    user,
 		Domains: domains,
 		Slug:    "domains",
+		Stats: &DashboardStats{
+			SelectedDomain: selectedDomain,
+		},
 	}
 
 	if err := tmpl.ExecuteTemplate(w, "domains.html", data); err != nil {
@@ -313,10 +312,19 @@ func (f *Frontend) settings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	domains, selectedDomain, err := f.getDomainsAndSelected(r, user)
+	if err != nil {
+		log.Printf("Failed to list domains: %v", err)
+	}
+
 	data := PageData{
-		Title: "Settings",
-		User:  user,
-		Slug:  "settings",
+		Title:   "Settings",
+		User:    user,
+		Slug:    "settings",
+		Domains: domains,
+		Stats: &DashboardStats{
+			SelectedDomain: selectedDomain,
+		},
 	}
 
 	// POST update settings
@@ -527,4 +535,40 @@ func (f *Frontend) userFromRequest(r *http.Request) *user.User {
 		return u
 	}
 	return nil
+}
+
+func (f *Frontend) getDomainsAndSelected(r *http.Request, user *user.User) ([]*domain.Domain, *domain.Domain, error) {
+	domains, err := f.db.DomainStorage().ListDomainsByUser(r.Context(), user.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var selectedDomain *domain.Domain
+
+	// check for cookie
+	if cookie, err := r.Cookie("selected_domain_id"); err == nil && cookie.Value != "" {
+		for _, d := range domains {
+			if d.ID == cookie.Value {
+				selectedDomain = d
+				break
+			}
+		}
+	}
+
+	// fallback: first verified domain
+	if selectedDomain == nil {
+		for _, d := range domains {
+			if d.Verified {
+				selectedDomain = d
+				break
+			}
+		}
+	}
+
+	// fallback: first domain
+	if selectedDomain == nil && len(domains) > 0 {
+		selectedDomain = domains[0]
+	}
+
+	return domains, selectedDomain, nil
 }
