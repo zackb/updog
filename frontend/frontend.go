@@ -14,7 +14,9 @@ import (
 	"github.com/zackb/updog/db"
 	"github.com/zackb/updog/domain"
 	"github.com/zackb/updog/env"
+	"github.com/zackb/updog/httpx"
 	"github.com/zackb/updog/id"
+	"github.com/zackb/updog/pageview"
 	"github.com/zackb/updog/settings"
 	"github.com/zackb/updog/user"
 )
@@ -37,6 +39,7 @@ var staticHandler http.Handler
 type Frontend struct {
 	auth          *auth.Service
 	db            *db.DB
+	ps            pageview.Storage
 	staticHandler http.Handler
 }
 
@@ -49,6 +52,7 @@ func NewFrontend(authSvc *auth.Service, database *db.DB) (*Frontend, error) {
 	return &Frontend{
 		auth:          authSvc,
 		db:            database,
+		ps:            database.PageviewStorage(),
 		staticHandler: staticHandler,
 	}, nil
 }
@@ -107,11 +111,10 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 	if selectedDomain != nil {
 		stats.SelectedDomain = selectedDomain
 		// get pageviews for the last 30 days
-		end := time.Now().UTC()
-		start := end.AddDate(0, 0, -30)
+		start, end, err := httpx.ParseTimeParams(r)
 
 		// get aggregated stats
-		agg, err := f.db.PageviewStorage().GetAggregatedStats(r.Context(), selectedDomain.ID, start, end)
+		agg, err := f.ps.GetAggregatedStats(r.Context(), selectedDomain.ID, start, end)
 		if err != nil {
 			log.Printf("Failed to get aggregated stats: %v", err)
 		} else {
@@ -121,7 +124,7 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 
 		// graph data
 		// TODO: hourly vs daily vs monthly
-		graph, err := f.db.PageviewStorage().GetHourlyStats(r.Context(), selectedDomain.ID, end.Add(-23*time.Hour), end)
+		graph, err := f.ps.GetHourlyStats(r.Context(), selectedDomain.ID, end.Add(-23*time.Hour), end)
 		if err != nil {
 			log.Printf("Failed to get graph data: %v", err)
 		} else {
@@ -134,7 +137,7 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// top pages
-		topPages, err := f.db.PageviewStorage().GetTopPages(r.Context(), selectedDomain.ID, start, end, 5)
+		topPages, err := f.ps.GetTopPages(r.Context(), selectedDomain.ID, start, end, 5)
 		if err != nil {
 			log.Printf("Failed to get top pages: %v", err)
 		} else {
@@ -142,7 +145,7 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// device usage
-		deviceUsage, err := f.db.PageviewStorage().GetDeviceUsage(r.Context(), selectedDomain.ID, start, end)
+		deviceUsage, err := f.ps.GetDeviceUsage(r.Context(), selectedDomain.ID, start, end)
 		if err != nil {
 			log.Printf("Failed to get device usage: %v", err)
 		} else {
@@ -550,6 +553,7 @@ func (f *Frontend) getDomainsAndSelected(r *http.Request, user *user.User) ([]*d
 	var selectedDomain *domain.Domain
 
 	// check for cookie
+	// TODO: change to query param
 	if cookie, err := r.Cookie("selected_domain_id"); err == nil && cookie.Value != "" {
 		for _, d := range domains {
 			if d.ID == cookie.Value {
