@@ -129,58 +129,197 @@ func (db *DB) GetAggregatedStats(ctx context.Context, domainID string, start, en
 	return stats, nil
 }
 
-// TODO: need to rollup here too
 func (db *DB) GetTopPages(ctx context.Context, domainID string, start, end time.Time, limit int) ([]*pageview.PageStats, error) {
+	// truncate to day UTC
+	start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
+
+	// normalize current day in UTC
+	now := time.Now().UTC()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	// determine historic and live ranges
+	historicEnd := end
+	if historicEnd.After(todayStart) {
+		historicEnd = todayStart.Add(-time.Nanosecond) // just before today
+	}
+
+	liveStart := start
+	if liveStart.Before(todayStart) {
+		liveStart = todayStart
+	}
 
 	var stats []*pageview.PageStats
+	statsMap := make(map[string]*pageview.PageStats)
 
-	err := db.Db.NewSelect().
-		Table("pageviews").
-		ColumnExpr("path.path AS path").
-		ColumnExpr("COUNT(*) AS count").
-		ColumnExpr("COUNT(DISTINCT visitor_id) AS unique_count").
-		Join("JOIN paths AS path ON path.id = pageviews.path_id").
-		Where("pageviews.domain_id = ?", domainID).
-		Where("pageviews.ts >= ?", start).
-		Where("pageviews.ts <= ?", end).
-		GroupExpr("path.id, path.path").
-		Order("count DESC").
-		Limit(limit).
-		Scan(ctx, &stats)
+	// historic
+	if start.Before(todayStart) {
+		var historicStats []*pageview.PageStats
+		err := db.Db.NewSelect().
+			Model((*pageview.DailyPageview)(nil)).
+			ColumnExpr("path.path AS path").
+			ColumnExpr("SUM(daily_pageview.count) AS count").
+			ColumnExpr("SUM(daily_pageview.unique_visitors) AS unique_count").
+			Join("JOIN paths AS path ON path.id = daily_pageview.path_id").
+			Where("daily_pageview.domain_id = ?", domainID).
+			Where("day >= ?", start).
+			Where("day <= ?", historicEnd).
+			GroupExpr("path.id, path.path").
+			Scan(ctx, &historicStats)
 
-	return stats, err
+		if err != nil {
+			return nil, fmt.Errorf("reading historic top pages: %w", err)
+		}
+
+		for _, s := range historicStats {
+			statsMap[s.Path] = s
+		}
+	}
+
+	// live
+	if end.After(todayStart) || end.Equal(todayStart) {
+		var liveStats []*pageview.PageStats
+		err := db.Db.NewSelect().
+			Table("pageviews").
+			ColumnExpr("path.path AS path").
+			ColumnExpr("COUNT(*) AS count").
+			ColumnExpr("COUNT(DISTINCT visitor_id) AS unique_count").
+			Join("JOIN paths AS path ON path.id = pageviews.path_id").
+			Where("pageviews.domain_id = ?", domainID).
+			Where("pageviews.ts >= ?", liveStart).
+			Where("pageviews.ts <= ?", end).
+			GroupExpr("path.id, path.path").
+			Scan(ctx, &liveStats)
+
+		if err != nil {
+			return nil, fmt.Errorf("reading live top pages: %w", err)
+		}
+
+		for _, s := range liveStats {
+			if existing, ok := statsMap[s.Path]; ok {
+				existing.Count += s.Count
+				existing.UniqueCount += s.UniqueCount
+			} else {
+				statsMap[s.Path] = s
+			}
+		}
+	}
+
+	// convert map to slice
+	for _, s := range statsMap {
+		stats = append(stats, s)
+	}
+
+	// sort by count desc
+	// TODO: move to slice.SortFunc when we upgrade go
+	for i := 0; i < len(stats); i++ {
+		for j := i + 1; j < len(stats); j++ {
+			if stats[i].Count < stats[j].Count {
+				stats[i], stats[j] = stats[j], stats[i]
+			}
+		}
+	}
+
+	// limit
+	if limit > 0 && len(stats) > limit {
+		stats = stats[:limit]
+	}
+
+	return stats, nil
 }
 
-// TODO: need to rollup here too
 func (db *DB) GetDeviceUsage(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.DeviceStats, error) {
+	// truncate to day UTC
+	start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
+
+	// normalize current day in UTC
+	now := time.Now().UTC()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	// determine historic and live ranges
+	historicEnd := end
+	if historicEnd.After(todayStart) {
+		historicEnd = todayStart.Add(-time.Nanosecond) // just before today
+	}
+
+	liveStart := start
+	if liveStart.Before(todayStart) {
+		liveStart = todayStart
+	}
+
 	var stats []*pageview.DeviceStats
+	statsMap := make(map[string]*pageview.DeviceStats)
 
-	total, err := db.CountPageviewsByDomainID(ctx, domainID, start, end)
-	if err != nil {
-		return nil, err
+	// historic
+	if start.Before(todayStart) {
+		var historicStats []*pageview.DeviceStats
+		err := db.Db.NewSelect().
+			Model((*pageview.DailyPageview)(nil)).
+			ColumnExpr("dt.name as device_type").
+			ColumnExpr("SUM(daily_pageview.count) as count").
+			Join("JOIN device_types AS dt ON dt.id = daily_pageview.device_type_id").
+			Where("daily_pageview.domain_id = ?", domainID).
+			Where("day >= ?", start).
+			Where("day <= ?", historicEnd).
+			Group("dt.name").
+			Scan(ctx, &historicStats)
+
+		if err != nil {
+			return nil, fmt.Errorf("reading historic device usage: %w", err)
+		}
+
+		for _, s := range historicStats {
+			statsMap[s.DeviceType] = s
+		}
 	}
-	if total == 0 {
-		return stats, nil
+
+	// live
+	if end.After(todayStart) || end.Equal(todayStart) {
+		var liveStats []*pageview.DeviceStats
+		err := db.Db.NewSelect().
+			Model((*pageview.Pageview)(nil)).
+			ColumnExpr("dt.name as device_type").
+			ColumnExpr("count(*) as count").
+			Join("JOIN device_types AS dt ON dt.id = pageview.device_type_id").
+			Where("domain_id = ?", domainID).
+			Where("ts >= ?", liveStart).
+			Where("ts <= ?", end).
+			Group("dt.name").
+			Scan(ctx, &liveStats)
+
+		if err != nil {
+			return nil, fmt.Errorf("reading live device usage: %w", err)
+		}
+
+		for _, s := range liveStats {
+			if existing, ok := statsMap[s.DeviceType]; ok {
+				existing.Count += s.Count
+			} else {
+				statsMap[s.DeviceType] = s
+			}
+		}
 	}
 
-	err = db.Db.NewSelect().
-		Model((*pageview.Pageview)(nil)).
-		ColumnExpr("dt.name as device_type").
-		ColumnExpr("count(*) as count").
-		Join("JOIN device_types AS dt ON dt.id = pageview.device_type_id").
-		Where("domain_id = ?", domainID).
-		Where("ts >= ?", start).
-		Where("ts <= ?", end).
-		Group("dt.name").
-		Order("count DESC").
-		Scan(ctx, &stats)
-
-	if err != nil {
-		return nil, err
+	// convert map to slice and calculate total
+	var total int64
+	for _, s := range statsMap {
+		stats = append(stats, s)
+		total += s.Count
 	}
 
-	for _, s := range stats {
-		s.Percentage = float64(s.Count) / float64(total) * 100
+	// sort by count desc
+	for i := 0; i < len(stats); i++ {
+		for j := i + 1; j < len(stats); j++ {
+			if stats[i].Count < stats[j].Count {
+				stats[i], stats[j] = stats[j], stats[i]
+			}
+		}
+	}
+
+	// calculate percentage
+	if total > 0 {
+		for _, s := range stats {
+			s.Percentage = float64(s.Count) / float64(total) * 100
+		}
 	}
 
 	return stats, nil

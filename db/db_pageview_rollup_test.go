@@ -136,3 +136,173 @@ func TestGetGeoStats_Rollup(t *testing.T) {
 		assert.Equal(t, int64(2), londonStats.UniqueVisitors, "London unique visitors mismatch")
 	}
 }
+
+func TestGetTopPages_Rollup(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+
+	// Create test domain
+	d := &domain.Domain{
+		ID:   id.NewID(),
+		Name: "example.com",
+	}
+	_, err := db.DomainStorage().CreateDomain(ctx, d)
+	assert.NoError(t, err)
+
+	// Setup times
+	now := time.Now().UTC()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	yesterday := todayStart.AddDate(0, 0, -1)
+
+	// Create paths
+	path1 := &pageview.Path{Path: "/home"}
+	_, err = db.Db.NewInsert().Model(path1).Exec(ctx)
+	assert.NoError(t, err)
+
+	path2 := &pageview.Path{Path: "/about"}
+	_, err = db.Db.NewInsert().Model(path2).Exec(ctx)
+	assert.NoError(t, err)
+
+	// 1. Insert historic data (Yesterday)
+	// /home: 100 views, 50 unique
+	_, err = db.Db.NewInsert().Model(&pageview.DailyPageview{
+		Day:            yesterday,
+		DomainID:       d.ID,
+		PathID:         path1.ID,
+		Count:          100,
+		UniqueVisitors: 50,
+		CountryID:      1, // Dummy
+		RegionID:       1,
+		CityID:         1,
+		BrowserID:      1,
+		OSID:           1,
+		DeviceTypeID:   1,
+		LanguageID:     1,
+		ReferrerID:     1,
+	}).Exec(ctx)
+	assert.NoError(t, err)
+
+	// 2. Insert live data (Today)
+	// /home: 20 views, 10 unique
+	// /about: 30 views, 15 unique
+	pvs := []*pageview.Pageview{
+		{Timestamp: now, DomainID: d.ID, PathID: path1.ID, VisitorID: 101},
+		{Timestamp: now, DomainID: d.ID, PathID: path1.ID, VisitorID: 101},
+		{Timestamp: now, DomainID: d.ID, PathID: path2.ID, VisitorID: 201},
+	}
+	_, err = db.Db.NewInsert().Model(&pvs).Exec(ctx)
+	assert.NoError(t, err)
+
+	// 3. Call GetTopPages
+	stats, err := db.GetTopPages(ctx, d.ID, yesterday, now, 10)
+	assert.NoError(t, err)
+
+	// 4. Verify
+	// /home: 100 + 2 = 102 views
+	// /about: 1 = 1 view
+
+	assert.Len(t, stats, 2)
+
+	var homeStats, aboutStats *pageview.PageStats
+	for _, s := range stats {
+		if s.Path == "/home" {
+			homeStats = s
+		} else if s.Path == "/about" {
+			aboutStats = s
+		}
+	}
+
+	if assert.NotNil(t, homeStats) {
+		assert.Equal(t, int64(102), homeStats.Count)
+	}
+	if assert.NotNil(t, aboutStats) {
+		assert.Equal(t, int64(1), aboutStats.Count)
+	}
+}
+
+func TestGetDeviceUsage_Rollup(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+
+	// Create test domain
+	d := &domain.Domain{
+		ID:   id.NewID(),
+		Name: "example.com",
+	}
+	_, err := db.DomainStorage().CreateDomain(ctx, d)
+	assert.NoError(t, err)
+
+	// Setup times
+	now := time.Now().UTC()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	yesterday := todayStart.AddDate(0, 0, -1)
+
+	// Create device types
+	dtMobile := &pageview.DeviceType{Name: "Mobile"}
+	_, err = db.Db.NewInsert().Model(dtMobile).Exec(ctx)
+	assert.NoError(t, err)
+
+	dtDesktop := &pageview.DeviceType{Name: "Desktop"}
+	_, err = db.Db.NewInsert().Model(dtDesktop).Exec(ctx)
+	assert.NoError(t, err)
+
+	// 1. Insert historic data (Yesterday)
+	// Mobile: 100 views
+	_, err = db.Db.NewInsert().Model(&pageview.DailyPageview{
+		Day:            yesterday,
+		DomainID:       d.ID,
+		DeviceTypeID:   dtMobile.ID,
+		Count:          100,
+		UniqueVisitors: 50,
+		CountryID:      1,
+		RegionID:       1,
+		CityID:         1,
+		BrowserID:      1,
+		OSID:           1,
+		LanguageID:     1,
+		ReferrerID:     1,
+		PathID:         1,
+	}).Exec(ctx)
+	assert.NoError(t, err)
+
+	// 2. Insert live data (Today)
+	// Mobile: 10 views
+	// Desktop: 50 views
+	pvs := []*pageview.Pageview{
+		{Timestamp: now, DomainID: d.ID, DeviceTypeID: dtMobile.ID, VisitorID: 101},
+		{Timestamp: now, DomainID: d.ID, DeviceTypeID: dtDesktop.ID, VisitorID: 201},
+	}
+	_, err = db.Db.NewInsert().Model(&pvs).Exec(ctx)
+	assert.NoError(t, err)
+
+	// 3. Call GetDeviceUsage
+	stats, err := db.GetDeviceUsage(ctx, d.ID, yesterday, now)
+	assert.NoError(t, err)
+
+	// 4. Verify
+	// Mobile: 100 + 1 = 101 views
+	// Desktop: 1 = 1 view
+	// Total: 102
+	// Mobile %: 101/102 * 100 = 99.01%
+	// Desktop %: 1/102 * 100 = 0.98%
+
+	assert.Len(t, stats, 2)
+
+	var mobileStats, desktopStats *pageview.DeviceStats
+	for _, s := range stats {
+		if s.DeviceType == "Mobile" {
+			mobileStats = s
+		} else if s.DeviceType == "Desktop" {
+			desktopStats = s
+		}
+	}
+
+	if assert.NotNil(t, mobileStats) {
+		assert.Equal(t, int64(101), mobileStats.Count)
+		assert.InDelta(t, 99.01, mobileStats.Percentage, 0.1)
+	}
+	if assert.NotNil(t, desktopStats) {
+		assert.Equal(t, int64(1), desktopStats.Count)
+		assert.InDelta(t, 0.98, desktopStats.Percentage, 0.1)
+	}
+}
