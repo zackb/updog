@@ -5,7 +5,7 @@
         <i class="fa-solid fa-globe"></i>
         <select
             style="background: none; border: none; color: var(--text-primary); outline: none; width: 100%; font-family: var(--font-main); cursor: pointer;"
-            onchange="document.cookie='selected_domain_id='+this.value+'; path=/; max-age=31536000'; window.location.reload();">
+            onchange="setSelectedDomainId(this.value);">
             {{range .Domains}}
             <option value="{{.ID}}" style="background-color: var(--bg-card); color: var(--text-primary);" {{if
                 $.Stats.SelectedDomain}}{{if eq .ID $.Stats.SelectedDomain.ID}}selected{{end}}{{end}}>

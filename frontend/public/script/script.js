@@ -4,6 +4,9 @@
 function loadRealtimePageviews() {
     const tbody = document.getElementById('realtime-tbody');
     const statusText = document.getElementById('status-text');
+    const domainId = getSelectedDomainId();
+
+    const queryParams = domainId ? `?domain_id=${domainId}` : '';
 
     if (!tbody) return; // Not on realtime page
 
@@ -13,7 +16,7 @@ function loadRealtimePageviews() {
     }
 
     // Fetch pageviews from API
-    fetch('/api/v1/pageviews')
+    fetch('/api/v1/pageviews' + queryParams)
         .then(response => {
             if (!response.ok) {
                 throw new Error('Failed to fetch pageviews');
@@ -80,6 +83,38 @@ function loadRealtimePageviews() {
                 statusText.textContent = 'Error';
             }
         });
+}
+
+function getCookie(cname) {
+  let name = cname + "=";
+  let decodedCookie = decodeURIComponent(document.cookie);
+  let ca = decodedCookie.split(';');
+  for(let i = 0; i <ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) == ' ') {
+      c = c.substring(1);
+    }
+    if (c.indexOf(name) == 0) {
+      return c.substring(name.length, c.length);
+    }
+  }
+  return "";
+}
+
+function setCookie(cname, cvalue, exdays) {
+  const d = new Date();
+  d.setTime(d.getTime() + (exdays*24*60*60*1000));
+  let expires = "expires="+ d.toUTCString();
+  document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+}
+
+function setSelectedDomainId(domainId) {
+    setCookie('selected_domain_id', domainId, 30);
+    location.reload();
+}
+
+function getSelectedDomainId() {
+    return getCookie('selected_domain_id');
 }
 
 /**
