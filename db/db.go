@@ -119,6 +119,7 @@ func CreateTables(db *bun.DB) error {
 		(*settings.Settings)(nil),
 		(*pageview.Country)(nil),
 		(*pageview.Region)(nil),
+		(*pageview.City)(nil),
 		(*pageview.Browser)(nil),
 		(*pageview.OperatingSystem)(nil),
 		(*pageview.DeviceType)(nil),
@@ -184,6 +185,18 @@ func CreateIndexes(db *bun.DB) error {
 		Index("ux_regions_country_id_name").
 		Unique().
 		Column("country_id").
+		Column("name").
+		IfNotExists().
+		Exec(context.Background()); err != nil {
+		return err
+	}
+
+	// unique on city, region_id
+	if _, err := db.NewCreateIndex().
+		Model((*pageview.City)(nil)).
+		Index("ux_cities_region_id_name").
+		Unique().
+		Column("region_id").
 		Column("name").
 		IfNotExists().
 		Exec(context.Background()); err != nil {

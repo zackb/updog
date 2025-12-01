@@ -84,13 +84,21 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher, gif bool) htt
 
 		region := entry.Region
 
-		if region == nil {
-			_ = db.GetOrCreateRegion(r.Context(), d, region)
+		if region != nil {
+			region.CountryID = country.ID
+			err = db.GetOrCreateRegion(r.Context(), d, region)
+			if err != nil {
+				log.Printf("Failed to get or create region: %v", err)
+			}
 		}
 
 		city := entry.City
 		if city != nil {
-			_ = db.GetOrCreateCity(r.Context(), d, city)
+			city.RegionID = region.ID
+			err = db.GetOrCreateCity(r.Context(), d, city)
+			if err != nil {
+				log.Printf("Failed to get or create city: %v", err)
+			}
 		}
 
 		browser := &pageview.Browser{Name: entry.Browser}
