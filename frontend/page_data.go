@@ -18,14 +18,16 @@ type DashboardStats struct {
 }
 
 type PageData struct {
-	Title       string
-	Description string
-	Keywords    []string
-	User        *user.User
-	Message     string
-	Domains     []*domain.Domain
-	Stats       *DashboardStats
-	Slug        string
-	Error       string
-	Data        map[string]any
+	Title             string
+	Description       string
+	Keywords          []string
+	User              *user.User
+	Message           string
+	Domains           []*domain.Domain
+	Stats             *DashboardStats
+	Slug              string
+	Error             string
+	Data              map[string]any
+	AdditionalScripts []string
+	AdditionalStyles  []string
 }
