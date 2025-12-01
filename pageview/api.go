@@ -73,25 +73,10 @@ func (h *Handler) handleListPageviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	from := time.Now().AddDate(0, 0, -7)
-	to := time.Now()
-	var err error
-
-	f := r.URL.Query().Get("from")
-	if f != "" {
-		from, err = time.Parse(f, "2006-01-02")
-		if err != nil {
-			http.Error(w, "Invalid 'from' date", http.StatusBadRequest)
-			return
-		}
-	}
-	t := r.URL.Query().Get("to")
-	if t != "" {
-		to, err = time.Parse(t, "2006-01-02")
-		if err != nil {
-			http.Error(w, "Invalid 'to' date", http.StatusBadRequest)
-			return
-		}
+	from, to, err := httpx.ParseTimeParams(r)
+	if err != nil {
+		httpx.JSONError(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	domainID, err := h.resolveDomainID(r, userID)
