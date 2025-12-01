@@ -21,10 +21,6 @@ import (
 	"github.com/zackb/updog/user"
 )
 
-const (
-	contextKeyUser = "user"
-)
-
 //go:embed views/*.html
 var viewsFS embed.FS
 
@@ -65,7 +61,7 @@ func (f *Frontend) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/logout", f.logout)
 	mux.HandleFunc("/join", f.join)
 	mux.HandleFunc("/login", f.login)
-	mux.HandleFunc("/dashboard", f.authMiddleware(f.dashboard))
+	mux.HandleFunc("/dashboard", f.authMiddleware(f.WithUpdog(f.dashboard)))
 	mux.HandleFunc("/realtime", f.authMiddleware(f.realtime))
 	mux.HandleFunc("/domains", f.authMiddleware(f.domains))
 	mux.HandleFunc("/domains/verify", f.authMiddleware(f.verifyDomain))
@@ -94,29 +90,18 @@ func (f *Frontend) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
-	user := f.userFromRequest(r)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
+func (f *Frontend) dashboard(req *UpdogRequest) error {
 
-	domains, selectedDomain, err := f.getDomainsAndSelected(r, user)
-	if err != nil {
-		log.Printf("Failed to list domains: %v", err)
-		http.Error(w, "Failed to load dashboard", http.StatusInternalServerError)
-		return
-	}
+	ctx := req.R.Context()
 
 	// fetch pageview stats for selected domain
 	stats := &DashboardStats{}
-	if selectedDomain != nil {
-		stats.SelectedDomain = selectedDomain
+	if req.SelectedDomain != nil {
+		stats.SelectedDomain = req.SelectedDomain
 		// get pageviews for the last 30 days
-		start, end, err := httpx.ParseTimeParams(r)
 
 		// get aggregated stats
-		agg, err := f.ps.GetAggregatedStats(r.Context(), selectedDomain.ID, start, end)
+		agg, err := f.ps.GetAggregatedStats(ctx, req.SelectedDomain.ID, req.Start, req.End)
 		if err != nil {
 			log.Printf("Failed to get aggregated stats: %v", err)
 		} else {
@@ -128,7 +113,7 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 		// TODO: hourly vs daily vs monthly
 		// end and start will be static for this chart
 		graphEnd := time.Now().UTC()
-		graph, err := f.ps.GetHourlyStats(r.Context(), selectedDomain.ID, graphEnd.Add(-23*time.Hour), graphEnd)
+		graph, err := f.ps.GetHourlyStats(ctx, req.SelectedDomain.ID, graphEnd.Add(-23*time.Hour), graphEnd)
 		if err != nil {
 			log.Printf("Failed to get graph data: %v", err)
 		} else {
@@ -141,7 +126,7 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// top pages
-		topPages, err := f.ps.GetTopPages(r.Context(), selectedDomain.ID, start, end, 5)
+		topPages, err := f.ps.GetTopPages(ctx, req.SelectedDomain.ID, req.Start, req.End, 5)
 		if err != nil {
 			log.Printf("Failed to get top pages: %v", err)
 		} else {
@@ -149,7 +134,7 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// device usage
-		deviceUsage, err := f.ps.GetDeviceUsage(r.Context(), selectedDomain.ID, start, end)
+		deviceUsage, err := f.ps.GetDeviceUsage(ctx, req.SelectedDomain.ID, req.Start, req.End)
 		if err != nil {
 			log.Printf("Failed to get device usage: %v", err)
 		} else {
@@ -159,16 +144,18 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 
 	data := PageData{
 		Title:   "Dashboard",
-		User:    user,
+		User:    req.User,
 		Stats:   stats,
 		Slug:    "dashboard",
-		Domains: domains,
+		Domains: req.Domains,
 	}
 
-	if err := tmpl.ExecuteTemplate(w, "dashboard.html", data); err != nil {
-		http.Error(w, "Failed to render analytics page", http.StatusInternalServerError)
+	if err := tmpl.ExecuteTemplate(req.W, "dashboard.html", data); err != nil {
+		http.Error(req.W, "Failed to render analytics page", http.StatusInternalServerError)
 		log.Printf("Template execution error: %v", err)
 	}
+
+	return nil
 }
 
 func (f *Frontend) realtime(w http.ResponseWriter, r *http.Request) {
@@ -612,48 +599,4 @@ func initTemplatesAndStatic() error {
 		staticHandler = http.FileServer(http.FS(staticSub))
 	}
 	return nil
-}
-
-func (f *Frontend) userFromRequest(r *http.Request) *user.User {
-	if u, ok := r.Context().Value(contextKeyUser).(*user.User); ok {
-		return u
-	}
-	return nil
-}
-
-func (f *Frontend) getDomainsAndSelected(r *http.Request, user *user.User) ([]*domain.Domain, *domain.Domain, error) {
-	domains, err := f.db.DomainStorage().ListDomainsByUser(r.Context(), user.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var selectedDomain *domain.Domain
-
-	// check for cookie
-	// TODO: change to query param
-	if cookie, err := r.Cookie("selected_domain_id"); err == nil && cookie.Value != "" {
-		for _, d := range domains {
-			if d.ID == cookie.Value {
-				selectedDomain = d
-				break
-			}
-		}
-	}
-
-	// fallback: first verified domain
-	if selectedDomain == nil {
-		for _, d := range domains {
-			if d.Verified {
-				selectedDomain = d
-				break
-			}
-		}
-	}
-
-	// fallback: first domain
-	if selectedDomain == nil && len(domains) > 0 {
-		selectedDomain = domains[0]
-	}
-
-	return domains, selectedDomain, nil
 }
