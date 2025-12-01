@@ -1,5 +1,6 @@
 - [ ] realtime pagination
-- [ ] "Visitors" -> map?
+- [ ] top pages pagination
+- [x] "Visitors" -> map?
 - [ ] logout
 - [ ] is admin
 - [ ] test data
@@ -9,7 +10,7 @@
 - [x] Top Pages broken
 - [x] path should be a dimension
 - [x] Quartz like scheduler for rollups
-- [ ] "Pages" section with detailed pageview analytics
+- [x] "Pages" section with detailed pageview analytics
 - [ ] add top referrers to dashboard
 - [x] Do something about "time on page"
 - [x] htmx and api to remove GraphData

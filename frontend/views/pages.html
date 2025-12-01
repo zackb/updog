@@ -1,0 +1,55 @@
+{{template "_header.html" .}}
+
+{{template "sidebar" .}}
+
+<main class="main-content">
+    {{template "topbar" .}}
+
+    <div class="dashboard-content">
+        <div class="page-header">
+            <h1>Pages</h1>
+            <p>Detailed analytics for all pages on your site.</p>
+        </div>
+
+        {{if .Stats.TopPages}}
+        <div class="card" style="margin-top: 2rem;">
+            <div class="card-header">
+                <h3>All Pages</h3>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Page Path</th>
+                            <th>Pageviews</th>
+                            <th>Unique Visitors</th>
+                            <th>Bounce Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Stats.TopPages}}
+                        <tr>
+                            <td class="page-path">{{.Path}}</td>
+                            <td>{{.Count}}</td>
+                            <td>{{.UniqueCount}}</td>
+                            <td>{{printf "%.1f%%" (mul .BounceRate 100)}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {{else}}
+        <div class="empty-state" style="margin-top: 2rem;">
+            <i class="fa-solid fa-file-lines fa-3x"></i>
+            <h3>No Page Data Available</h3>
+            <p>Start collecting data by adding the tracking script to your website.</p>
+        </div>
+        {{end}}
+    </div>
+</main>
+
+<style>
+</style>
+
+{{template "_footer.html" .}}

@@ -70,6 +70,7 @@ func (f *Frontend) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/domains", f.authMiddleware(f.domains))
 	mux.HandleFunc("/domains/verify", f.authMiddleware(f.verifyDomain))
 	mux.HandleFunc("/visitors", f.authMiddleware(f.visitors))
+	mux.HandleFunc("/pages", f.authMiddleware(f.pages))
 	mux.HandleFunc("/settings", f.authMiddleware(f.settings))
 	mux.HandleFunc("/", f.index)
 }
@@ -394,6 +395,46 @@ func (f *Frontend) visitors(w http.ResponseWriter, r *http.Request) {
 
 	if err := tmpl.ExecuteTemplate(w, "visitors.html", data); err != nil {
 		http.Error(w, "Failed to render visitors page", http.StatusInternalServerError)
+	}
+}
+
+func (f *Frontend) pages(w http.ResponseWriter, r *http.Request) {
+	user := f.userFromRequest(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	domains, selectedDomain, err := f.getDomainsAndSelected(r, user)
+	if err != nil {
+		log.Printf("Failed to list domains: %v", err)
+	}
+
+	stats := &DashboardStats{
+		SelectedDomain: selectedDomain,
+	}
+
+	if selectedDomain != nil {
+		start, end, _ := httpx.ParseTimeParams(r)
+		// Get top 100 pages
+		topPages, err := f.ps.GetTopPages(r.Context(), selectedDomain.ID, start, end, 100)
+		if err != nil {
+			log.Printf("Failed to get top pages: %v", err)
+		} else {
+			stats.TopPages = topPages
+		}
+	}
+
+	data := PageData{
+		Title:   "Pages",
+		User:    user,
+		Slug:    "pages",
+		Domains: domains,
+		Stats:   stats,
+	}
+
+	if err := tmpl.ExecuteTemplate(w, "pages.html", data); err != nil {
+		http.Error(w, "Failed to render pages page", http.StatusInternalServerError)
 	}
 }
 

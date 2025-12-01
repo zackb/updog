@@ -22,9 +22,9 @@
             <i class="fa-solid fa-users"></i>
             <span>Visitors</span>
         </a>
-        <a href="#" class="nav-item">
-            <i class="fa-solid fa-arrow-trend-up"></i>
-            <span>Behavior</span>
+        <a href="/pages" class='nav-item {{if eq .Slug "pages"}}active{{end}}'>
+            <i class="fa-solid fa-file-lines"></i>
+            <span>Pages</span>
         </a>
         <a href="/settings" class='nav-item {{if eq .Slug "settings"}}active{{end}}'>
             <i class="fa-solid fa-gear"></i>
