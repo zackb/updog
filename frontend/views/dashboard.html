@@ -44,7 +44,8 @@
                 </div>
                 <div class="stat-details">
                     <h3>Bounce Rate</h3>
-                    <p class="value">{{if .Stats.Aggregated}}{{printf "%.1f%%" (mul .Stats.Aggregated.BounceRate 100)}}{{else}}0{{end}}</p>
+                    <p class="value">{{if .Stats.Aggregated}}{{printf "%.1f%%" (mul .Stats.Aggregated.BounceRate
+                        100)}}{{else}}0{{end}}</p>
                     <span class="trend negative">
                         <i class="fa-solid fa-arrow-down"></i> 2.1%
                     </span>
@@ -76,13 +77,8 @@
                     </div>
                 </div>
                 <div class="chart-placeholder">
-                    <!-- In a real app, a canvas or SVG chart would go here -->
                     {{if .Stats.GraphData}}
-                    {{$max := .Stats.MaxViews}}
-                    {{range .Stats.GraphData}}
-                    <div class="bar" style="height: {{if eq $max 0}}0{{else}}calc({{.Count}} / {{$max}} * 100%){{end}}"
-                        title="{{.Time.Format " Jan 02"}}: {{.Count}} views"></div>
-                    {{end}}
+                    {{RenderSVG .Stats.GraphData}}
                     {{else}}
                     <p style="width: 100%; text-align: center; color: var(--text-secondary);">No data available</p>
                     {{end}}
@@ -97,36 +93,36 @@
                     <canvas id="deviceChart" width="200" height="200"></canvas>
 
                     <script>
-                    (function () {
-                        const canvas = document.getElementById('deviceChart');
-                        const ctx = canvas.getContext('2d');
+                        (function () {
+                            const canvas = document.getElementById('deviceChart');
+                            const ctx = canvas.getContext('2d');
 
-                        const centerX = 100;
-                        const centerY = 100;
-                        const outerRadius = 80;
-                        const innerRadius = 50;
+                            const centerX = 100;
+                            const centerY = 100;
+                            const outerRadius = 80;
+                            const innerRadius = 50;
 
-                        // Prepare segment data
-                        const data = [
-                            {{range $index, $d := .Stats.DeviceUsage}}
-                                {{if $index}},{{end}}
-                                {
-                                    label: '{{$d.DeviceType}}',
-                                    percentage: {{$d.Percentage}},
-                                    color: (
-                                        getComputedStyle(document.documentElement)
-                                            .getPropertyValue('--color-{{$d.DeviceType | lower}}')
-                                            .trim()
-                                    ) || (function () {
-                                        const fallback = {
-                                            mobile: '#58a6ff',
-                                            desktop: '#238636',
-                                            tablet: '#f1e05a'
-                                        };
-                                        return fallback['{{$d.DeviceType | lower}}'] || '#58a6ff';
-                                    })()
-                                }
-                            {{end}}
+                            // Prepare segment data
+                            const data = [
+                                {{ range $index, $d:= .Stats.DeviceUsage }}
+                                {{ if $index}}, {{ end }}
+                        {
+                            label: '{{$d.DeviceType}}',
+                                percentage: {{ $d.Percentage }},
+                            color: (
+                                getComputedStyle(document.documentElement)
+                                    .getPropertyValue('--color-{{$d.DeviceType | lower}}')
+                                    .trim()
+                            ) || (function () {
+                                const fallback = {
+                                    mobile: '#58a6ff',
+                                    desktop: '#238636',
+                                    tablet: '#f1e05a'
+                                };
+                                return fallback['{{$d.DeviceType | lower}}'] || '#58a6ff';
+                            })()
+                        }
+                        {{ end }}
                         ];
 
                         let currentAngle = -Math.PI / 2; // Start at top
@@ -145,7 +141,7 @@
 
                             currentAngle += sliceAngle;
                         });
-                    })();
+                    }) ();
                     </script>
 
                     <div class="donut-center">
