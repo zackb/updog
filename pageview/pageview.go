@@ -18,11 +18,27 @@ type Country struct {
 type Region struct {
 	bun.BaseModel `bun:"table:regions"`
 
-	ID        int64 `bun:",pk,autoincrement"`
-	CountryID int64 `bun:"country_id,notnull"` // FK
+	ID         int64   `bun:",pk,autoincrement"`
+	CountryID  int64   `bun:"country_id,notnull"` // FK
+	GeoNamesID uint    `bun:"geonames_id"`
+	Latitude   float64 `bun:"lat"`
+	Longitude  float64 `bun:"lon"`
 
 	Name    string   `bun:",notnull"`
 	Country *Country `bun:"rel:belongs-to,join:country_id=id"`
+}
+
+type City struct {
+	bun.BaseModel `bun:"table:cities"`
+
+	ID         int64   `bun:",pk,autoincrement"`
+	RegionID   int64   `bun:"region_id,notnull"` // FK
+	GeoNamesID uint    `bun:"geonames_id"`
+	Latitude   float64 `bun:"lat"`
+	Longitude  float64 `bun:"lon"`
+
+	Name   string  `bun:",notnull"`
+	Region *Region `bun:"rel:belongs-to,join:region_id=id"`
 }
 
 type Browser struct {
@@ -78,6 +94,7 @@ type Pageview struct {
 	DomainID     string `bun:"domain_id,notnull"`
 	CountryID    int64  `bun:"country_id"`
 	RegionID     int64  `bun:"region_id"`
+	CityID       int64  `bun:"city_id"`
 	BrowserID    int64  `bun:"browser_id"`
 	OSID         int64  `bun:"os_id"`
 	DeviceTypeID int64  `bun:"device_type_id"`
@@ -90,6 +107,7 @@ type Pageview struct {
 	Domain     *domain.Domain   `bun:"rel:belongs-to,join:domain_id=id"`
 	Country    *Country         `bun:"rel:belongs-to,join:country_id=id"`
 	Region     *Region          `bun:"rel:belongs-to,join:region_id=id"`
+	City       *City            `bun:"rel:belongs-to,join:city_id=id"`
 	Browser    *Browser         `bun:"rel:belongs-to,join:browser_id=id"`
 	OS         *OperatingSystem `bun:"rel:belongs-to,join:os_id=id"`
 	DeviceType *DeviceType      `bun:"rel:belongs-to,join:device_type_id=id"`

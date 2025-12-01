@@ -7,6 +7,7 @@ import (
 
 	"github.com/oschwald/geoip2-golang"
 	"github.com/zackb/updog/env"
+	"github.com/zackb/updog/pageview"
 )
 
 type Geo struct {
@@ -14,8 +15,9 @@ type Geo struct {
 }
 
 type Entry struct {
-	Country string
-	Region  string
+	Country *pageview.Country
+	Region  *pageview.Region
+	City    *pageview.City
 }
 
 func New() (*Geo, error) {
@@ -42,14 +44,36 @@ func (m *Geo) Lookup(ip string) (*Entry, error) {
 	if err != nil {
 		return nil, err
 	}
-	region := ""
-	if len(c.Subdivisions) > 0 {
-		region = c.Subdivisions[0].IsoCode
+
+	country := &pageview.Country{
+		Name: c.Country.IsoCode,
 	}
-	return &Entry{
-		Country: c.Country.IsoCode,
-		Region:  region,
-	}, nil
+
+	entry := &Entry{
+		Country: country,
+	}
+
+	if len(c.City.Names) > 0 {
+		city := &pageview.City{
+			Name:       c.City.Names["en"],
+			GeoNamesID: c.City.GeoNameID,
+			Latitude:   c.Location.Latitude,
+			Longitude:  c.Location.Longitude,
+		}
+		entry.City = city
+	}
+
+	if len(c.Subdivisions) > 0 {
+		sub := c.Subdivisions[0]
+		entry.Region = &pageview.Region{
+			Name:       sub.IsoCode,
+			GeoNamesID: sub.GeoNameID,
+			Latitude:   c.Location.Latitude,
+			Longitude:  c.Location.Longitude,
+		}
+	}
+
+	return entry, nil
 }
 
 func (m *Geo) Close() error {

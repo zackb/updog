@@ -9,6 +9,7 @@ import (
 
 	"github.com/zackb/updog/enrichment/geo"
 	"github.com/zackb/updog/enrichment/ua"
+	"github.com/zackb/updog/pageview"
 )
 
 type Enricher struct {
@@ -16,8 +17,9 @@ type Enricher struct {
 }
 
 type Enrichment struct {
-	Country    string
-	Region     string
+	Country    *pageview.Country
+	Region     *pageview.Region
+	City       *pageview.City
 	Browser    string
 	OS         string
 	DeviceType string
@@ -45,6 +47,7 @@ func (e *Enricher) Enrich(req *http.Request) (*Enrichment, error) {
 	} else {
 		res.Country = entry.Country
 		res.Region = entry.Region
+		res.City = entry.City
 	}
 	browser, os, deviceType := ua.ParseUserAgent(userAgent)
 	res.Browser = browser

@@ -79,11 +79,19 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher, gif bool) htt
 			return
 		}
 
-		country := &pageview.Country{Name: entry.Country}
+		country := entry.Country
 		_ = db.GetOrCreateDimension(r.Context(), d, country, "name", country.Name)
 
-		region := &pageview.Region{Name: entry.Region, CountryID: country.ID}
-		_ = db.GetOrCreateRegion(r.Context(), d, region)
+		region := entry.Region
+
+		if region == nil {
+			_ = db.GetOrCreateRegion(r.Context(), d, region)
+		}
+
+		city := entry.City
+		if city != nil {
+			_ = db.GetOrCreateCity(r.Context(), d, city)
+		}
 
 		browser := &pageview.Browser{Name: entry.Browser}
 		_ = db.GetOrCreateDimension(r.Context(), d, browser, "name", browser.Name)
@@ -116,6 +124,7 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher, gif bool) htt
 			PathID:       path.ID,
 			CountryID:    country.ID,
 			RegionID:     region.ID,
+			CityID:       city.ID,
 			BrowserID:    browser.ID,
 			OSID:         os.ID,
 			DeviceTypeID: deviceType.ID,

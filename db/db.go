@@ -232,6 +232,45 @@ func GetOrCreateDimension[T any](ctx context.Context, d *DB, model *T, column st
 		Scan(ctx)
 }
 
+func GetOrCreateCity(
+	ctx context.Context,
+	d *DB,
+	city *pageview.City,
+) error {
+	err := d.Db.NewSelect().
+		Model(city).
+		Where("region_id = ? AND name = ?", city.RegionID, city.Name).
+		Scan(ctx)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	// not found try to insert
+	_, err = d.Db.NewInsert().
+		Model(city).
+		On("CONFLICT(region_id, name) DO NOTHING").
+		Returning("*").
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+
+	if city.ID == 0 {
+		err = d.Db.NewSelect().
+			Model(city).
+			Where("region_id = ? AND name = ?", city.RegionID, city.Name).
+			Scan(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // GetOrCreateRegion tries to get a Region by countryID and name, and creates it if not found.
 // This is a one-off because Region has a composite unique key.
 func GetOrCreateRegion(
