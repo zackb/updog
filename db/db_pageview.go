@@ -200,6 +200,7 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
             domain_id,
             country_id,
             region_id,
+			city_id,
             browser_id,
             os_id,
             device_type_id,
@@ -215,6 +216,7 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
             pageview.domain_id,
             pageview.country_id,
             pageview.region_id,
+			pageview.city_id,
             pageview.browser_id,
             pageview.os_id,
             pageview.device_type_id,
@@ -233,6 +235,7 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
                 domain_id,
                 country_id,
                 region_id,
+				city_id,
                 browser_id,
                 os_id,
                 device_type_id,
@@ -243,12 +246,13 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
                 COUNT(*) AS pv_count
             FROM pageviews
             WHERE ts >= ? AND ts < ?
-            GROUP BY visitor_id, domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, path_id, day
+            GROUP BY visitor_id, domain_id, country_id, region_id, city_id, browser_id, os_id, device_type_id, language_id, referrer_id, path_id, day
         ) AS visitor_pv
         ON pageview.visitor_id = visitor_pv.visitor_id
         AND pageview.domain_id = visitor_pv.domain_id
         AND pageview.country_id = visitor_pv.country_id
         AND pageview.region_id = visitor_pv.region_id
+		AND pageview.city_id = visitor_pv.city_id
         AND pageview.browser_id = visitor_pv.browser_id
         AND pageview.os_id = visitor_pv.os_id
         AND pageview.device_type_id = visitor_pv.device_type_id
@@ -257,9 +261,9 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
 		AND pageview.path_id = visitor_pv.path_id
         AND %s = visitor_pv.day
         WHERE pageview.ts >= ? AND pageview.ts < ?
-        GROUP BY pageview.domain_id, pageview.country_id, pageview.region_id, pageview.browser_id,
+        GROUP BY pageview.domain_id, pageview.country_id, pageview.region_id, pageview.city_id, pageview.browser_id,
                  pageview.os_id, pageview.device_type_id, pageview.language_id, pageview.referrer_id, pageview.path_id, %s
-        ON CONFLICT (day, domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, path_id)
+        ON CONFLICT (day, domain_id, country_id, region_id, city_id, browser_id, os_id, device_type_id, language_id, referrer_id, path_id)
         DO UPDATE SET
             count = EXCLUDED.count,
             unique_visitors = EXCLUDED.unique_visitors,

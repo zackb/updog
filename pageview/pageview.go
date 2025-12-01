@@ -123,6 +123,7 @@ type DailyPageview struct {
 	DomainID     string    `bun:",pk,notnull"`
 	CountryID    int64     `bun:",pk"`
 	RegionID     int64     `bun:",pk"`
+	CityID       int64     `bun:",pk"`
 	BrowserID    int64     `bun:",pk"`
 	OSID         int64     `bun:"os_id,pk"`
 	DeviceTypeID int64     `bun:",pk"`
@@ -138,6 +139,7 @@ type DailyPageview struct {
 	Domain     *domain.Domain   `bun:"rel:belongs-to,join:domain_id=id"`
 	Country    *Country         `bun:"rel:belongs-to,join:country_id=id"`
 	Region     *Region          `bun:"rel:belongs-to,join:region_id=id"`
+	City       *City            `bun:"rel:belongs-to,join:city_id=id"`
 	Browser    *Browser         `bun:"rel:belongs-to,join:browser_id=id"`
 	OS         *OperatingSystem `bun:"rel:belongs-to,join:os_id=id"`
 	DeviceType *DeviceType      `bun:"rel:belongs-to,join:device_type_id=id"`
