@@ -142,9 +142,9 @@ type DeviceStats struct {
 }
 
 type AggregatedStats struct {
-	TotalPageviews int64
-	UniqueVisitors int64
-	BounceRate     float64
+	TotalPageviews int64   `json:"total_pageviews"`
+	UniqueVisitors int64   `json:"unique_visitors"`
+	BounceRate     float64 `json:"bounce_rate"`
 }
 
 type AggregatedPoint struct {

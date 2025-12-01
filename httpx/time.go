@@ -2,9 +2,33 @@ package httpx
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 )
+
+// ParseTimeParams parses "from" and "to" time parameters from the request URL.
+func ParseTimeParams(r *http.Request) (time.Time, time.Time, error) {
+	from := time.Now().UTC().AddDate(0, 0, -7) // default to 7 days ago
+	to := time.Now().UTC()
+	var err error
+
+	f := r.URL.Query().Get("from")
+	if f != "" {
+		from, err = ParseTimeParam(f)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("Invalid 'from' date: %v", err)
+		}
+	}
+	t := r.URL.Query().Get("to")
+	if t != "" {
+		to, err = ParseTimeParam(t)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("Invalid 'to' date: %v", err)
+		}
+	}
+	return from, to, nil
+}
 
 // ParseTimeParam parses a time string from a query parameter.
 // It supports:

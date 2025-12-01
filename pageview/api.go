@@ -3,7 +3,6 @@ package pageview
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -38,6 +37,7 @@ func (h *Handler) Routes() chi.Router {
 		protected.Get("/hourly", h.handleGetHourlyStats)
 		protected.Get("/daily", h.handleGetDailyStats)
 		protected.Get("/monthly", h.handleGetMonthlyStats)
+		protected.Get("/stats", h.handleGetAggregatedStats)
 		// TODO: remove this
 		protected.Get("/rollup", h.handleRollup)
 	})
@@ -125,6 +125,43 @@ func (h *Handler) handleGetMonthlyStats(w http.ResponseWriter, r *http.Request) 
 	h.handleGetStats(w, r, h.store.GetMonthlyStats)
 }
 
+func (h *Handler) handleGetAggregatedStats(w http.ResponseWriter, r *http.Request) {
+
+	from, to, err := httpx.ParseTimeParams(r)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userID := httpx.UserIDFromRequest(r)
+	if userID == "" {
+		httpx.JSONError(w, "Bad state", http.StatusInternalServerError)
+		return
+	}
+
+	domainID, err := h.resolveDomainID(r, userID)
+	if err != nil {
+		log.Printf("Failed to resolve domain: %v", err)
+		httpx.JSONError(w, "Failed to resolve domain", http.StatusInternalServerError)
+		return
+	}
+	if domainID == "" {
+		httpx.JSONError(w, "No domain found", http.StatusNotFound)
+		return
+	}
+
+	stats, err := h.store.GetAggregatedStats(r.Context(), domainID, from, to)
+
+	if err != nil {
+		log.Println("Error reading stats:", err)
+		httpx.JSONError(w, "Error reading stats", http.StatusInternalServerError)
+		return
+	}
+	err = json.NewEncoder(w).Encode(stats)
+	httpx.CheckError(w, err)
+}
+
 func (h *Handler) handleGetStats(w http.ResponseWriter, r *http.Request, statsFunc func(context.Context, string, time.Time, time.Time) ([]*AggregatedPoint, error)) {
 	userID := httpx.UserIDFromRequest(r)
 	if userID == "" {
@@ -132,7 +169,7 @@ func (h *Handler) handleGetStats(w http.ResponseWriter, r *http.Request, statsFu
 		return
 	}
 
-	from, to, err := h.parseTimeParams(r)
+	from, to, err := httpx.ParseTimeParams(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -157,28 +194,6 @@ func (h *Handler) handleGetStats(w http.ResponseWriter, r *http.Request, statsFu
 	}
 	err = json.NewEncoder(w).Encode(stats)
 	httpx.CheckError(w, err)
-}
-
-func (h *Handler) parseTimeParams(r *http.Request) (time.Time, time.Time, error) {
-	from := time.Now().AddDate(0, 0, -7)
-	to := time.Now()
-	var err error
-
-	f := r.URL.Query().Get("from")
-	if f != "" {
-		from, err = httpx.ParseTimeParam(f)
-		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf("Invalid 'from' date: %v", err)
-		}
-	}
-	t := r.URL.Query().Get("to")
-	if t != "" {
-		to, err = httpx.ParseTimeParam(t)
-		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf("Invalid 'to' date: %v", err)
-		}
-	}
-	return from, to, nil
 }
 
 // resolveDomainID determines the domain ID to use based on the request parameters and user ownership.
