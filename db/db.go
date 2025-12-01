@@ -87,7 +87,9 @@ func setupDB(sqldb *sql.DB, db *bun.DB) (*DB, error) {
 	ctx := context.Background()
 
 	// log queries
-	db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
+	if env.IsDev() {
+		db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
+	}
 
 	// autocreate tables
 	if err := CreateTables(db); err != nil {
