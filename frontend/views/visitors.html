@@ -66,6 +66,27 @@
             maxZoom: 19,
         }).addTo(map);
 
+        loadVisitors().then(visitors => {
+            visitors.forEach(visitor => {
+                // Calculate radius based on pageviews (using sqrt for area proportionality)
+                // Minimum radius of 5, scaling factor of 2
+                const radius = Math.max(5, Math.sqrt(visitor.pageviews) * 2);
+
+                const marker = L.circleMarker([visitor.lat, visitor.lon], {
+                    radius: radius,
+                    fillColor: "#58a6ff",
+                    color: "#ffffff",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.6
+                }).addTo(map);
+
+                marker.bindPopup(`<b>${visitor.location}</b><br>${visitor.pageviews} visitors<br>${visitor.unique_visitors} unique visitors`);
+            });
+        }).catch(error => {
+            console.error('Error loading visitor data:', error);
+        });
+
         /*
         const visitors = [
             { lat: 40.7128, lng: -74.0060, city: "New York", count: 150 },

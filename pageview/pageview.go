@@ -174,6 +174,14 @@ type AggregatedPoint struct {
 	BounceRate     float64   `bun:"bounce_rate" json:"bounce_rate"`
 }
 
+type AggregatedGeoPoint struct {
+	City           string  `bun:"location" json:"location"`
+	Latitude       float64 `bun:"lat" json:"lat"`
+	Longitude      float64 `bun:"lon" json:"lon"`
+	Count          int64   `bun:"count" json:"pageviews"`
+	UniqueVisitors int64   `bun:"unique_visitors" json:"unique_visitors"`
+}
+
 type PageviewDTO struct {
 	Timestamp time.Time `json:"timestamp"`
 	DomainID  string    `json:"domain_id"`

@@ -440,6 +440,27 @@ func (db *DB) GetMonthlyStats(ctx context.Context, domainID string, start, end t
 	}), nil
 }
 
+func (db *DB) GetGeoStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedGeoPoint, error) {
+	var stats []*pageview.AggregatedGeoPoint
+
+	err := db.Db.NewSelect().
+		Table("pageviews").
+		ColumnExpr("city.name AS location").
+		ColumnExpr("city.lat AS lat").
+		ColumnExpr("city.lon AS lon").
+		ColumnExpr("COUNT(*) AS count").
+		ColumnExpr("COUNT(DISTINCT visitor_id) AS unique_visitors").
+		Join("JOIN cities AS city ON city.id = pageviews.city_id").
+		Where("pageviews.domain_id = ?", domainID).
+		Where("pageviews.ts >= ?", start).
+		Where("pageviews.ts <= ?", end).
+		GroupExpr("city.id, city.name, city.lat, city.lon").
+		Order("count DESC").
+		Scan(ctx, &stats)
+
+	return stats, err
+}
+
 func (db *DB) dateTrunc(unit string, col string) string {
 	if db.Db.Dialect().Name().String() == "sqlite" {
 		switch unit {

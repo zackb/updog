@@ -1,3 +1,22 @@
+async function loadVisitors() {
+  const params = new URLSearchParams();
+
+  const domain = getSelectedDomainId();
+  if (domain) params.set('domain_id', domain);
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const fromParam = urlParams.get('from');
+  const toParam = urlParams.get('to');
+
+  if (fromParam) params.set('from', fromParam);
+  if (toParam) params.set('to', toParam);
+
+  const res = await fetch('/api/v1/pageviews/visitors?' + params.toString());
+  if (!res.ok) throw new Error('Failed to fetch visitors');
+
+  return res.json();
+}
+
 /**
  * Load and display real-time pageviews
  */

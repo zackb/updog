@@ -16,4 +16,5 @@ type Storage interface {
 	GetHourlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*AggregatedPoint, error)
 	GetDailyStats(ctx context.Context, domainID string, start, end time.Time) ([]*AggregatedPoint, error)
 	GetMonthlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*AggregatedPoint, error)
+	GetGeoStats(ctx context.Context, domainID string, start, end time.Time) ([]*AggregatedGeoPoint, error)
 }

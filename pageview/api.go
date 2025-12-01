@@ -34,6 +34,7 @@ func (h *Handler) Routes() chi.Router {
 	r.Group(func(protected chi.Router) {
 		protected.Use(middleware.AuthMiddleware(h.auth))
 		protected.Get("/", h.handleListPageviews)
+		protected.Get("/visitors", h.handleGetVisitors)
 		protected.Get("/hourly", h.handleGetHourlyStats)
 		protected.Get("/daily", h.handleGetDailyStats)
 		protected.Get("/monthly", h.handleGetMonthlyStats)
@@ -43,6 +44,37 @@ func (h *Handler) Routes() chi.Router {
 	})
 
 	return r
+}
+
+func (h *Handler) handleGetVisitors(w http.ResponseWriter, r *http.Request) {
+	userID := httpx.UserIDFromRequest(r)
+	if userID == "" {
+		httpx.JSONError(w, "Bad state", http.StatusInternalServerError)
+		return
+	}
+
+	from, to, err := httpx.ParseTimeParams(r)
+	if err != nil {
+		httpx.JSONError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	domainID, err := h.resolveDomainID(r, userID)
+
+	if err != nil || domainID == "" {
+		log.Printf("Failed to resolve domain: %v", err)
+		httpx.JSONError(w, "Failed to resolve domain", http.StatusInternalServerError)
+		return
+	}
+
+	visitors, err := h.store.GetGeoStats(r.Context(), domainID, from, to)
+	if err != nil {
+		log.Println("Error reading visitors:", err)
+		httpx.JSONError(w, "Error reading visitors", http.StatusInternalServerError)
+		return
+	}
+	err = json.NewEncoder(w).Encode(visitors)
+	httpx.CheckError(w, err)
 }
 
 func (h *Handler) handleRollup(w http.ResponseWriter, r *http.Request) {
