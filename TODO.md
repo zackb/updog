@@ -1,4 +1,8 @@
+- [ ] realtime pagination
+- [ ] "Visitors" -> map?
+- [ ] logout
 - [ ] is admin
+- [ ] test data
 - [x] fix rollups
 - [ ] remove bounce rate from top pages
 - [x] referrer is URL not host?!?
@@ -7,7 +11,7 @@
 - [x] Quartz like scheduler for rollups
 - [ ] "Pages" section with detailed pageview analytics
 - [ ] add top referrers to dashboard
-- [ ] Do something about "time on page"
+- [x] Do something about "time on page"
 - [x] htmx and api to remove GraphData
-- [ ] docker fix for js and tls certs
+- [ ] docker fix for js?
 - [ ] helm deployment
