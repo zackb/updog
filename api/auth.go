@@ -7,6 +7,7 @@ import (
 
 	"github.com/zackb/updog/env"
 	"github.com/zackb/updog/httpx"
+	"github.com/zackb/updog/id"
 	"github.com/zackb/updog/user"
 )
 
@@ -105,7 +106,10 @@ func (a *API) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := &user.User{
+		ID:                id.NewID(),
 		Email:             creds.Email,
+		Name:              user.NameFromEmail(creds.Email),
+		Initials:          user.InitialsFromEmail(creds.Email),
 		EncryptedPassword: epass,
 	}
 

@@ -13,6 +13,8 @@ type User struct {
 	bun.BaseModel     `bun:"table:users"`
 	ID                string `bun:",pk" json:"id"`
 	Email             string `bun:",notnull" json:"email"`
+	Name              string `bun:",notnull" json:"name"`
+	Initials          string `bun:",notnull" json:"initials"`
 	EncryptedPassword string `json:"-"`
 
 	UpdatedAt time.Time `bun:",default:CURRENT_TIMESTAMP" json:"updated_at"`

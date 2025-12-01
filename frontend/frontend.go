@@ -478,6 +478,8 @@ func (f *Frontend) join(w http.ResponseWriter, r *http.Request) {
 		u := &user.User{
 			ID:                id.NewID(),
 			Email:             email,
+			Name:              user.NameFromEmail(email),
+			Initials:          user.InitialsFromEmail(email),
 			EncryptedPassword: epass,
 		}
 
