@@ -124,7 +124,9 @@ func (f *Frontend) dashboard(w http.ResponseWriter, r *http.Request) {
 
 		// graph data
 		// TODO: hourly vs daily vs monthly
-		graph, err := f.ps.GetHourlyStats(r.Context(), selectedDomain.ID, end.Add(-23*time.Hour), end)
+		// end and start will be static for this chart
+		graphEnd := time.Now().UTC()
+		graph, err := f.ps.GetHourlyStats(r.Context(), selectedDomain.ID, graphEnd.Add(-23*time.Hour), graphEnd)
 		if err != nil {
 			log.Printf("Failed to get graph data: %v", err)
 		} else {
