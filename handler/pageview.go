@@ -90,6 +90,8 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher, gif bool) htt
 			if err != nil {
 				log.Printf("Failed to get or create region: %v", err)
 			}
+		} else {
+			region = &pageview.Region{ID: 0}
 		}
 
 		city := entry.City
@@ -99,6 +101,8 @@ func Handler(d *db.DB, ds domain.Storage, en *enrichment.Enricher, gif bool) htt
 			if err != nil {
 				log.Printf("Failed to get or create city: %v", err)
 			}
+		} else {
+			city = &pageview.City{ID: 0}
 		}
 
 		browser := &pageview.Browser{Name: entry.Browser}
