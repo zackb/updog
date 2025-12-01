@@ -1159,3 +1159,43 @@ tr:last-child td {
     margin: 1rem 0 0.5rem;
     color: var(--text-primary);
 }
+
+.integration-instructions {
+    background-color: var(--bg-dark);
+    padding: 1.25rem;
+    border-radius: 10px;
+    margin-top: 1rem;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.integration-instructions h2 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.integration-instructions p {
+    margin-bottom: 1rem;
+    line-height: 1.6;
+}
+
+.integration-instructions pre {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 0;
+}
+
+.integration-instructions code {
+    color: var(--text-code, #c5c8f5);
+    font-family: Menlo, Monaco, Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    display: block;
+    white-space: pre;
+}

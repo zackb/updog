@@ -56,6 +56,21 @@
             </div>
             {{end}}
         </div>
+
+        <div class="integration-instructions">
+            <h2>Integration Instructions</h2>
+            <p>To integrate Updog analytics into your website, add the following script before the closing &lt;/html&gt; tag of your pages:</p>
+            <pre><code>
+    &lt;script async src="https://updog.bartel.com/static/script/ua.js"&gt;&lt;/script&gt;
+    &lt;script&gt;
+      window._uaq = window._uaq || [];
+      function ua(){_uaq.push(arguments);}
+      ua('pageview', {domain: location.hostname, path: location.pathname, ref: document.referrer});
+      ua('config', {endpoint: 'https://updog.bartel.com'});
+    &lt;/script&gt;
+            </code></pre>
+        </div>
+
     </div>
 </div>
 
