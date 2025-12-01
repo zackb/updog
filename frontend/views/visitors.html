@@ -81,26 +81,17 @@
                     fillOpacity: 0.6
                 }).addTo(map);
 
-                marker.bindPopup(`<b>${visitor.location}</b><br>${visitor.pageviews} visitors<br>${visitor.unique_visitors} unique visitors`);
+                const text = `<b>${visitor.location}</b>
+                    <br>${visitor.pageviews} visitors
+                    <br>${visitor.unique_visitors} unique visitors`;
+                marker.bindTooltip(text, {
+                    permanent: false,
+                    direction: 'top'
+                });
             });
         }).catch(error => {
             console.error('Error loading visitor data:', error);
         });
-
-        /*
-        const visitors = [
-            { lat: 40.7128, lng: -74.0060, city: "New York", count: 150 },
-            { lat: 51.5074, lng: -0.1278, city: "London", count: 120 },
-            { lat: 35.6762, lng: 139.6503, city: "Tokyo", count: 95 },
-            { lat: -33.8688, lng: 151.2093, city: "Sydney", count: 80 },
-            { lat: 48.8566, lng: 2.3522, city: "Paris", count: 110 }
-        ];
-
-        visitors.forEach(visitor => {
-            const marker = L.marker([visitor.lat, visitor.lng]).addTo(map);
-            marker.bindPopup(`<b>${visitor.city}</b><br>${visitor.count} visitors`);
-        });
-        */
     }
 
     if (document.readyState === 'loading') {
