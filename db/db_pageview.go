@@ -266,7 +266,7 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
 func (db *DB) GetHourlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
 	// truncate to hour
 	start = start.Truncate(time.Hour)
-	end = end.Truncate(time.Hour)
+	// end = end.Truncate(time.Hour)
 
 	var stats []*pageview.AggregatedPoint
 	timeExpr := db.dateTrunc("hour", "ts")
