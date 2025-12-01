@@ -54,6 +54,7 @@ jwk-key-dev:
 
 deploy: build
 	rsync updog root@updog.bartel.com:/updog/
+	ssh root@updog.bartel.com supervisorctl restart updog
 
 test:
 	go test ./...
