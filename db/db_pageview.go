@@ -20,6 +20,11 @@ func (db *DB) CountPageviewsByDomainID(ctx context.Context, domainID string, sta
 }
 
 func (db *DB) ListPageviewsByDomainID(ctx context.Context, domainID string, start time.Time, end time.Time, limit, offset int) ([]*pageview.Pageview, error) {
+
+	if domainID == "" {
+		return nil, fmt.Errorf("domainID is required")
+	}
+
 	var pageviews []*pageview.Pageview
 	err := db.Db.NewSelect().
 		Model(&pageviews).

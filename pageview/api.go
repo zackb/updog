@@ -81,7 +81,7 @@ func (h *Handler) handleListPageviews(w http.ResponseWriter, r *http.Request) {
 
 	domainID, err := h.resolveDomainID(r, userID)
 
-	if err != nil {
+	if err != nil || domainID == "" {
 		log.Printf("Failed to resolve domain: %v", err)
 		httpx.JSONError(w, "Failed to resolve domain", http.StatusInternalServerError)
 		return
