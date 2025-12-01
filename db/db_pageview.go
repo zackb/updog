@@ -441,24 +441,100 @@ func (db *DB) GetMonthlyStats(ctx context.Context, domainID string, start, end t
 }
 
 func (db *DB) GetGeoStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedGeoPoint, error) {
+	// truncate to day UTC
+	start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
+
+	// normalize current day in UTC
+	now := time.Now().UTC()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	// determine historic and live ranges
+	historicEnd := end
+	if historicEnd.After(todayStart) {
+		historicEnd = todayStart.Add(-time.Nanosecond) // just before today
+	}
+
+	liveStart := start
+	if liveStart.Before(todayStart) {
+		liveStart = todayStart
+	}
+
 	var stats []*pageview.AggregatedGeoPoint
+	statsMap := make(map[string]*pageview.AggregatedGeoPoint)
 
-	err := db.Db.NewSelect().
-		Table("pageviews").
-		ColumnExpr("city.name AS location").
-		ColumnExpr("city.lat AS lat").
-		ColumnExpr("city.lon AS lon").
-		ColumnExpr("COUNT(*) AS count").
-		ColumnExpr("COUNT(DISTINCT visitor_id) AS unique_visitors").
-		Join("JOIN cities AS city ON city.id = pageviews.city_id").
-		Where("pageviews.domain_id = ?", domainID).
-		Where("pageviews.ts >= ?", start).
-		Where("pageviews.ts <= ?", end).
-		GroupExpr("city.id, city.name, city.lat, city.lon").
-		Order("count DESC").
-		Scan(ctx, &stats)
+	// historic
+	if start.Before(todayStart) {
+		var historicStats []*pageview.AggregatedGeoPoint
+		err := db.Db.NewSelect().
+			Model((*pageview.DailyPageview)(nil)).
+			ColumnExpr("city.name AS location").
+			ColumnExpr("city.lat AS lat").
+			ColumnExpr("city.lon AS lon").
+			ColumnExpr("SUM(daily_pageview.count) AS count").
+			ColumnExpr("SUM(daily_pageview.unique_visitors) AS unique_visitors").
+			Join("JOIN cities AS city ON city.id = daily_pageview.city_id").
+			Where("daily_pageview.domain_id = ?", domainID).
+			Where("day >= ?", start).
+			Where("day <= ?", historicEnd).
+			GroupExpr("city.id, city.name, city.lat, city.lon").
+			Scan(ctx, &historicStats)
 
-	return stats, err
+		if err != nil {
+			return nil, fmt.Errorf("reading historic geo stats: %w", err)
+		}
+
+		for _, s := range historicStats {
+			statsMap[s.City] = s
+		}
+	}
+
+	// live
+	if end.After(todayStart) || end.Equal(todayStart) {
+		var liveStats []*pageview.AggregatedGeoPoint
+		err := db.Db.NewSelect().
+			Table("pageviews").
+			ColumnExpr("city.name AS location").
+			ColumnExpr("city.lat AS lat").
+			ColumnExpr("city.lon AS lon").
+			ColumnExpr("COUNT(*) AS count").
+			ColumnExpr("COUNT(DISTINCT visitor_id) AS unique_visitors").
+			Join("JOIN cities AS city ON city.id = pageviews.city_id").
+			Where("pageviews.domain_id = ?", domainID).
+			Where("pageviews.ts >= ?", liveStart).
+			Where("pageviews.ts <= ?", end).
+			GroupExpr("city.id, city.name, city.lat, city.lon").
+			Scan(ctx, &liveStats)
+
+		if err != nil {
+			return nil, fmt.Errorf("reading live geo stats: %w", err)
+		}
+
+		for _, s := range liveStats {
+			if existing, ok := statsMap[s.City]; ok {
+				existing.Count += s.Count
+				existing.UniqueVisitors += s.UniqueVisitors
+			} else {
+				statsMap[s.City] = s
+			}
+		}
+	}
+
+	// convert map to slice
+	for _, s := range statsMap {
+		stats = append(stats, s)
+	}
+
+	// sort by count desc
+	// TODO: move to slice.SortFunc when we upgrade go
+	for i := 0; i < len(stats); i++ {
+		for j := i + 1; j < len(stats); j++ {
+			if stats[i].Count < stats[j].Count {
+				stats[i], stats[j] = stats[j], stats[i]
+			}
+		}
+	}
+
+	return stats, nil
 }
 
 func (db *DB) dateTrunc(unit string, col string) string {
