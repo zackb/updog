@@ -1,3 +1,4 @@
+- [ ] is admin
 - [x] fix rollups
 - [ ] remove bounce rate from top pages
 - [x] referrer is URL not host?!?
