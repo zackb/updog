@@ -1,7 +1,6 @@
 package frontend
 
 import (
-	"context"
 	"embed"
 	"html/template"
 	"io/fs"
@@ -14,11 +13,9 @@ import (
 	"github.com/zackb/updog/db"
 	"github.com/zackb/updog/domain"
 	"github.com/zackb/updog/env"
-	"github.com/zackb/updog/httpx"
 	"github.com/zackb/updog/id"
 	"github.com/zackb/updog/pageview"
 	"github.com/zackb/updog/settings"
-	"github.com/zackb/updog/user"
 )
 
 //go:embed views/*.html
@@ -61,33 +58,14 @@ func (f *Frontend) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/logout", f.logout)
 	mux.HandleFunc("/join", f.join)
 	mux.HandleFunc("/login", f.login)
-	mux.HandleFunc("/dashboard", f.authMiddleware(f.WithUpdog(f.dashboard)))
-	mux.HandleFunc("/realtime", f.authMiddleware(f.realtime))
-	mux.HandleFunc("/domains", f.authMiddleware(f.domains))
-	mux.HandleFunc("/domains/verify", f.authMiddleware(f.verifyDomain))
-	mux.HandleFunc("/visitors", f.authMiddleware(f.visitors))
-	mux.HandleFunc("/pages", f.authMiddleware(f.pages))
-	mux.HandleFunc("/settings", f.authMiddleware(f.settings))
+	mux.HandleFunc("/dashboard", f.WithAuthenticated(f.WithUpdog(f.dashboard)))
+	mux.HandleFunc("/realtime", f.WithAuthenticated(f.WithUpdog(f.realtime)))
+	mux.HandleFunc("/domains", f.WithAuthenticated(f.WithUpdog(f.domains)))
+	mux.HandleFunc("/domains/verify", f.WithAuthenticated(f.WithUpdog(f.verifyDomain)))
+	mux.HandleFunc("/visitors", f.WithAuthenticated(f.WithUpdog(f.visitors)))
+	mux.HandleFunc("/pages", f.WithAuthenticated(f.WithUpdog(f.pages)))
+	mux.HandleFunc("/settings", f.WithAuthenticated(f.WithUpdog(f.settings)))
 	mux.HandleFunc("/", f.index)
-}
-
-func (f *Frontend) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		token := f.auth.IsAuthenticated(r)
-		if token == nil {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
-			return
-		}
-
-		user, err := f.db.UserStorage().ReadUser(r.Context(), token.ClientId)
-		if err != nil {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), contextKeyUser, user)
-		next(w, r.WithContext(ctx))
-	}
 }
 
 func (f *Frontend) dashboard(req *UpdogRequest) error {
@@ -150,194 +128,154 @@ func (f *Frontend) dashboard(req *UpdogRequest) error {
 		Domains: req.Domains,
 	}
 
-	if err := tmpl.ExecuteTemplate(req.W, "dashboard.html", data); err != nil {
-		http.Error(req.W, "Failed to render analytics page", http.StatusInternalServerError)
-		log.Printf("Template execution error: %v", err)
-	}
-
-	return nil
+	return tmpl.ExecuteTemplate(req.W, "dashboard.html", data)
 }
 
-func (f *Frontend) realtime(w http.ResponseWriter, r *http.Request) {
-	user := f.userFromRequest(r)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	domains, selectedDomain, err := f.getDomainsAndSelected(r, user)
-	if err != nil {
-		log.Printf("Failed to list domains: %v", err)
-	}
+func (f *Frontend) realtime(req *UpdogRequest) error {
 
 	data := PageData{
 		Title:   "Real-time",
-		User:    user,
+		User:    req.User,
 		Slug:    "realtime",
-		Domains: domains,
+		Domains: req.Domains,
 		Stats: &DashboardStats{
-			SelectedDomain: selectedDomain,
+			SelectedDomain: req.SelectedDomain,
 		},
 	}
 
-	if err := tmpl.ExecuteTemplate(w, "realtime.html", data); err != nil {
-		http.Error(w, "Failed to render realtime page", http.StatusInternalServerError)
-	}
+	return tmpl.ExecuteTemplate(req.W, "realtime.html", data)
 }
 
-func (f *Frontend) domains(w http.ResponseWriter, r *http.Request) {
-	user := f.userFromRequest(r)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
+func (f *Frontend) domains(req *UpdogRequest) error {
+
+	ctx := req.R.Context()
 
 	// POST create domain
-	if r.Method == http.MethodPost {
-		// Create new domain
-		name := r.FormValue("name")
+	if req.R.Method == http.MethodPost {
+		// create new domain
+		name := req.R.FormValue("name")
 		if name == "" {
-			http.Error(w, "Domain name is required", http.StatusBadRequest)
-			return
+			return NewUpError("Domain name is required", http.StatusBadRequest)
 		}
 
 		domain := &domain.Domain{
 			ID:                id.NewID(),
 			Name:              name,
-			UserID:            user.ID,
+			UserID:            req.User.ID,
 			VerificationToken: id.NewID(),
 			Verified:          false,
 		}
 
-		_, err := f.db.DomainStorage().CreateDomain(r.Context(), domain)
+		_, err := f.db.DomainStorage().CreateDomain(ctx, domain)
 		if err != nil {
 			log.Printf("Failed to create domain: %v", err)
-			http.Error(w, "Failed to create domain", http.StatusInternalServerError)
-			return
+			return NewUpError("Failed to create domain", http.StatusInternalServerError)
 		}
 
-		http.Redirect(w, r, "/domains", http.StatusSeeOther)
-		return
-	}
+		http.Redirect(req.W, req.R, "/domains", http.StatusSeeOther)
 
-	// GET list domains
-	domains, selectedDomain, err := f.getDomainsAndSelected(r, user)
-	if err != nil {
-		log.Printf("Failed to list domains: %v", err)
-		http.Error(w, "Failed to list domains", http.StatusInternalServerError)
-		return
+		return nil
 	}
 
 	data := PageData{
 		Title:   "Domains",
-		User:    user,
-		Domains: domains,
+		User:    req.User,
+		Domains: req.Domains,
 		Slug:    "domains",
 		Stats: &DashboardStats{
-			SelectedDomain: selectedDomain,
+			SelectedDomain: req.SelectedDomain,
 		},
 	}
 
-	if err := tmpl.ExecuteTemplate(w, "domains.html", data); err != nil {
-		http.Error(w, "Failed to render domains page", http.StatusInternalServerError)
-	}
+	return tmpl.ExecuteTemplate(req.W, "domains.html", data)
 }
 
-func (f *Frontend) verifyDomain(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+func (f *Frontend) verifyDomain(req *UpdogRequest) error {
+
+	ctx := req.R.Context()
+
+	if req.R.Method != http.MethodPost {
+		return NewUpError("Method not allowed", http.StatusMethodNotAllowed)
 	}
 
-	domainID := r.FormValue("domain_id")
+	domainID := req.R.FormValue("domain_id")
 	if domainID == "" {
-		http.Error(w, "Domain ID is required", http.StatusBadRequest)
-		return
+		return NewUpError("Domain ID is required", http.StatusBadRequest)
 	}
 
-	d, err := f.db.DomainStorage().ReadDomain(r.Context(), domainID)
+	d, err := f.db.DomainStorage().ReadDomain(ctx, domainID)
 	if err != nil {
 		log.Printf("Failed to read domain: %v", err)
-		http.Error(w, "Domain not found", http.StatusNotFound)
-		return
+		return NewUpError("Failed to read domain", http.StatusInternalServerError)
 	}
 
 	// verify ownership by checking for the file
 	verificationURL := "https://" + d.Name + "/updog_" + d.VerificationToken + ".txt"
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", verificationURL, nil)
+	hreq, err := http.NewRequest("GET", verificationURL, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Set a realistic User-Agent and Accept header
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; MyApp/1.0)")
-	req.Header.Set("Accept", "text/plain")
+	// set a realistic User-Agent and Accept header
+	hreq.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Updog/1.0)")
+	hreq.Header.Set("Accept", "text/plain")
 
-	resp, err := client.Do(req)
-	// resp, err := http.Get(verificationURL)
+	resp, err := client.Do(hreq)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		log.Printf("Verification failed for %s %d: %v", d.Name, resp.StatusCode, err)
-		http.Error(w, "Verification failed. Please ensure the file exists at: "+verificationURL, http.StatusBadRequest)
-		return
+		return NewUpError("Verification file not found", http.StatusBadRequest)
 	}
 	defer resp.Body.Close()
 
 	// update domain as verified
 	d.Verified = true
+	// TODO: move to storage
 	_, err = f.db.Db.NewUpdate().
 		Model(d).
 		Column("verified").
 		Where("id = ?", d.ID).
-		Exec(r.Context())
+		Exec(ctx)
 
 	if err != nil {
 		log.Printf("Failed to update domain: %v", err)
-		http.Error(w, "Failed to verify domain", http.StatusInternalServerError)
-		return
+		return NewUpError("Failed to update domain", http.StatusInternalServerError)
 	}
 
-	http.Redirect(w, r, "/domains", http.StatusSeeOther)
+	http.Redirect(req.W, req.R, "/domains", http.StatusSeeOther)
+
+	return nil
 }
 
-func (f *Frontend) settings(w http.ResponseWriter, r *http.Request) {
-	user := f.userFromRequest(r)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
+func (f *Frontend) settings(req *UpdogRequest) error {
 
-	domains, selectedDomain, err := f.getDomainsAndSelected(r, user)
-	if err != nil {
-		log.Printf("Failed to list domains: %v", err)
-	}
+	ctx := req.R.Context()
 
 	data := PageData{
 		Title:   "Settings",
-		User:    user,
+		User:    req.User,
 		Slug:    "settings",
-		Domains: domains,
+		Domains: req.Domains,
 		Stats: &DashboardStats{
-			SelectedDomain: selectedDomain,
+			SelectedDomain: req.SelectedDomain,
 		},
 	}
 
 	// POST update settings
-	if r.Method == http.MethodPost {
-		disableSignups := r.FormValue(settings.SettingDisableSignups) == "on"
-		if err := f.db.SetValueAsBool(r.Context(), settings.SettingDisableSignups, disableSignups); err != nil {
+	if req.R.Method == http.MethodPost {
+		disableSignups := req.R.FormValue(settings.SettingDisableSignups) == "on"
+		if err := f.db.SetValueAsBool(ctx, settings.SettingDisableSignups, disableSignups); err != nil {
 			log.Printf("Failed to update settings: %v", err)
-			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
-			return
+			return NewUpError("Failed to update settings", http.StatusInternalServerError)
 		}
 
 		// redirect to refresh the page and show updated state
-		http.Redirect(w, r, "/settings", http.StatusSeeOther)
-		return
+		http.Redirect(req.W, req.R, "/settings", http.StatusSeeOther)
+		return nil
 	}
 
 	// GET settings
-	disableSignups, err := f.db.ReadValueAsBool(r.Context(), settings.SettingDisableSignups)
+	disableSignups, err := f.db.ReadValueAsBool(ctx, settings.SettingDisableSignups)
 	if err != nil {
 		log.Printf("Failed to read settings: %v", err)
 		data.Error = "Failed to load settings"
@@ -347,30 +285,18 @@ func (f *Frontend) settings(w http.ResponseWriter, r *http.Request) {
 		"DisableSignups": disableSignups,
 	}
 
-	if err := tmpl.ExecuteTemplate(w, "settings.html", data); err != nil {
-		http.Error(w, "Failed to render settings page", http.StatusInternalServerError)
-	}
+	return tmpl.ExecuteTemplate(req.W, "settings.html", data)
 }
 
-func (f *Frontend) visitors(w http.ResponseWriter, r *http.Request) {
-	user := f.userFromRequest(r)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	domains, selectedDomain, err := f.getDomainsAndSelected(r, user)
-	if err != nil {
-		log.Printf("Failed to list domains: %v", err)
-	}
+func (f *Frontend) visitors(req *UpdogRequest) error {
 
 	data := PageData{
 		Title:   "Visitors",
-		User:    user,
+		User:    req.User,
 		Slug:    "visitors",
-		Domains: domains,
+		Domains: req.Domains,
 		Stats: &DashboardStats{
-			SelectedDomain: selectedDomain,
+			SelectedDomain: req.SelectedDomain,
 		},
 		AdditionalStyles: []string{
 			"https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
@@ -380,49 +306,34 @@ func (f *Frontend) visitors(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	if err := tmpl.ExecuteTemplate(w, "visitors.html", data); err != nil {
-		http.Error(w, "Failed to render visitors page", http.StatusInternalServerError)
-	}
+	return tmpl.ExecuteTemplate(req.W, "visitors.html", data)
 }
 
-func (f *Frontend) pages(w http.ResponseWriter, r *http.Request) {
-	user := f.userFromRequest(r)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
+func (f *Frontend) pages(req *UpdogRequest) error {
 
-	domains, selectedDomain, err := f.getDomainsAndSelected(r, user)
-	if err != nil {
-		log.Printf("Failed to list domains: %v", err)
-	}
-
-	stats := &DashboardStats{
-		SelectedDomain: selectedDomain,
-	}
-
-	if selectedDomain != nil {
-		start, end, _ := httpx.ParseTimeParams(r)
-		// Get top 100 pages
-		topPages, err := f.ps.GetTopPages(r.Context(), selectedDomain.ID, start, end, 100)
-		if err != nil {
-			log.Printf("Failed to get top pages: %v", err)
-		} else {
-			stats.TopPages = topPages
-		}
-	}
+	ctx := req.R.Context()
 
 	data := PageData{
 		Title:   "Pages",
-		User:    user,
+		User:    req.User,
 		Slug:    "pages",
-		Domains: domains,
-		Stats:   stats,
+		Domains: req.Domains,
+		Stats: &DashboardStats{
+			SelectedDomain: req.SelectedDomain,
+		},
 	}
 
-	if err := tmpl.ExecuteTemplate(w, "pages.html", data); err != nil {
-		http.Error(w, "Failed to render pages page", http.StatusInternalServerError)
+	if req.SelectedDomain != nil {
+		// Get top 100 pages
+		topPages, err := f.ps.GetTopPages(ctx, req.SelectedDomain.ID, req.Start, req.End, 100)
+		if err != nil {
+			log.Printf("Failed to get top pages: %v", err)
+		} else {
+			data.Stats.TopPages = topPages
+		}
 	}
+
+	return tmpl.ExecuteTemplate(req.W, "pages.html", data)
 }
 
 func (f *Frontend) index(w http.ResponseWriter, r *http.Request) {
@@ -440,142 +351,6 @@ func (f *Frontend) index(w http.ResponseWriter, r *http.Request) {
 	if err := tmpl.ExecuteTemplate(w, "index.html", data); err != nil {
 		http.Error(w, "Failed to render index page", http.StatusInternalServerError)
 	}
-}
-
-func (f *Frontend) logout(w http.ResponseWriter, r *http.Request) {
-	// clear the authentication cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "token",
-		Value:    "",
-		HttpOnly: true,
-		Secure:   !env.IsDev(),
-		MaxAge:   -1,
-	})
-
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
-func (f *Frontend) login(w http.ResponseWriter, r *http.Request) {
-
-	data := PageData{
-		Title: "Login",
-	}
-
-	if r.Method == http.MethodPost {
-		email := r.FormValue("email")
-		password := r.FormValue("password")
-
-		// find user by email
-		user, err := f.db.UserStorage().ReadUserByEmail(r.Context(), email)
-		if err != nil {
-			data.Error = "Invalid email or password"
-			tmpl.ExecuteTemplate(w, "login.html", data)
-			return
-		}
-
-		// validate password
-		if user.EncryptedPassword == "" || !user.Validate(password) {
-			data.Error = "Invalid email or password"
-			tmpl.ExecuteTemplate(w, "login.html", data)
-			return
-		}
-
-		// user is validated, create a token
-		token, _, err := f.auth.CreateToken(user.ID)
-		if err != nil {
-			data.Error = "Internal error"
-			tmpl.ExecuteTemplate(w, "login.html", data)
-			return
-		}
-
-		http.SetCookie(w, &http.Cookie{
-			Name:     "token",
-			Value:    token,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   !env.IsDev(),
-		})
-
-		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
-		return
-	}
-
-	tmpl.ExecuteTemplate(w, "login.html", data)
-}
-
-func (f *Frontend) join(w http.ResponseWriter, r *http.Request) {
-	data := PageData{
-		Title: "Sign Up",
-	}
-
-	disableSignups, err := f.db.ReadValueAsBool(r.Context(), settings.SettingDisableSignups)
-
-	if err != nil {
-		log.Printf("Failed to read settings: %v", err)
-		data.Error = "Failed to load settings"
-	}
-
-	if disableSignups {
-		data.Error = "Signups are currently disabled"
-	}
-
-	if data.Error != "" {
-		tmpl.ExecuteTemplate(w, "signup.html", data)
-		return
-	}
-
-	if r.Method == http.MethodPost {
-		email := r.FormValue("email")
-		password := r.FormValue("password")
-
-		if email == "" || password == "" {
-			data.Error = "Failed to create user."
-			tmpl.ExecuteTemplate(w, "signup.html", data)
-			return
-		}
-
-		epass, err := user.HashPassword(password)
-		if err != nil {
-			log.Printf("Failed to hash password: %v", err)
-			data.Error = "Sorry! An internal error occurred."
-			tmpl.ExecuteTemplate(w, "signup.html", data)
-			return
-		}
-
-		u := &user.User{
-			ID:                id.NewID(),
-			Email:             email,
-			Name:              user.NameFromEmail(email),
-			Initials:          user.InitialsFromEmail(email),
-			EncryptedPassword: epass,
-		}
-
-		if err := f.db.CreateUser(r.Context(), u); err != nil {
-			log.Printf("Failed to create user: %v", err)
-			data.Error = "Failed to create user."
-			tmpl.ExecuteTemplate(w, "signup.html", data)
-			return
-		}
-
-		// Auto login after signup
-		token, _, err := f.auth.CreateToken(u.ID)
-		if err == nil {
-			http.SetCookie(w, &http.Cookie{
-				Name:     "token",
-				Value:    token,
-				Path:     "/",
-				HttpOnly: true,
-				Secure:   !env.IsDev(),
-			})
-			http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
-			return
-		}
-
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	tmpl.ExecuteTemplate(w, "signup.html", data)
 }
 
 func initTemplatesAndStatic() error {

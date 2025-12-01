@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"time"
@@ -24,6 +25,41 @@ type UpdogRequest struct {
 }
 
 type UpdogHandler func(*UpdogRequest) error
+
+type UpError struct {
+	Message    string
+	HTTPStatus int
+}
+
+func NewUpError(message string, httpStatus int) *UpError {
+	return &UpError{
+		Message:    message,
+		HTTPStatus: httpStatus,
+	}
+}
+
+func (e *UpError) Error() string {
+	return e.Message
+}
+
+func (f *Frontend) WithAuthenticated(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token := f.auth.IsAuthenticated(r)
+		if token == nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		user, err := f.db.UserStorage().ReadUser(r.Context(), token.ClientId)
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), contextKeyUser, user)
+		next(w, r.WithContext(ctx))
+	}
+}
 
 func (f *Frontend) WithUpdog(h UpdogHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +95,13 @@ func (f *Frontend) WithUpdog(h UpdogHandler) http.HandlerFunc {
 
 		if err := h(req); err != nil {
 			log.Printf("Handler error: %v", err)
-			http.Error(w, "Something went wrong", http.StatusInternalServerError)
+			if upErr, ok := err.(*UpError); ok {
+				http.Error(w, upErr.Message, upErr.HTTPStatus)
+				return
+			} else {
+				http.Error(w, "Something went wrong", http.StatusInternalServerError)
+			}
+
 		}
 	}
 }
