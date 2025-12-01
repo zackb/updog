@@ -148,8 +148,63 @@ type AggregatedStats struct {
 }
 
 type AggregatedPoint struct {
-	Time           time.Time `bun:"time"`
-	Count          int64     `bun:"count"`
-	UniqueVisitors int64     `bun:"unique_visitors"`
-	BounceRate     float64   `bun:"bounce_rate"`
+	Time           time.Time `bun:"time" json:"timestamp"`
+	Count          int64     `bun:"count" json:"pageviews"`
+	UniqueVisitors int64     `bun:"unique_visitors" json:"unique_visitors"`
+	BounceRate     float64   `bun:"bounce_rate" json:"bounce_rate"`
+}
+
+type PageviewDTO struct {
+	Timestamp time.Time `json:"timestamp"`
+	DomainID  string    `json:"domain_id"`
+	Country   string    `json:"country"`
+	Region    string    `json:"region"`
+	Browser   string    `json:"browser"`
+	OS        string    `json:"os"`
+	Device    string    `json:"device"`
+	Language  string    `json:"language"`
+	Referrer  string    `json:"referrer"`
+	Path      string    `json:"path"`
+}
+
+func ToPageviewDTOs(pvs []*Pageview) []*PageviewDTO {
+	dtos := make([]*PageviewDTO, len(pvs))
+	for i, pv := range pvs {
+		dtos[i] = ToPageviewDTO(pv)
+	}
+	return dtos
+}
+
+func ToPageviewDTO(pv *Pageview) *PageviewDTO {
+	dto := &PageviewDTO{
+		Timestamp: pv.Timestamp,
+		DomainID:  pv.DomainID,
+	}
+
+	if pv.Country != nil {
+		dto.Country = pv.Country.Name
+	}
+	if pv.Region != nil {
+		dto.Region = pv.Region.Name
+	}
+	if pv.Browser != nil {
+		dto.Browser = pv.Browser.Name
+	}
+	if pv.OS != nil {
+		dto.OS = pv.OS.Name
+	}
+	if pv.DeviceType != nil {
+		dto.Device = pv.DeviceType.Name
+	}
+	if pv.Language != nil {
+		dto.Language = pv.Language.Code
+	}
+	if pv.Referrer != nil {
+		dto.Referrer = pv.Referrer.Host
+	}
+	if pv.Path != nil {
+		dto.Path = pv.Path.Path
+	}
+
+	return dto
 }

@@ -44,18 +44,19 @@ function loadRealtimePageviews() {
                 const row = document.createElement('tr');
 
                 // Format timestamp
-                const timestamp = new Date(pageview.Timestamp);
+                const timestamp = new Date(pageview.timestamp);
                 const timeStr = formatTimestamp(timestamp);
 
                 // Build row HTML
                 row.innerHTML = `
                     <td class="time-cell">${timeStr}</td>
-                    <td class="path-cell">${escapeHtml(pageview.Path.Path || '/')}</td>
-                    <td>${formatCountry(pageview.Country)}</td>
-                    <td>${formatBrowser(pageview.Browser)}</td>
-                    <td>${formatOS(pageview.OS)}</td>
-                    <td>${formatDeviceType(pageview.DeviceType)}</td>
-                    <td class="referrer-cell ${pageview.Referrer ? '' : 'direct'}">${formatReferrer(pageview.Referrer)}</td>
+                    <td class="path-cell">${escapeHtml(pageview.path || '/')}</td>
+                    <td>${formatEntry(pageview.country)}</td>
+                    <td>${formatEntry(pageview.region)}</td>
+                    <td>${formatEntry(pageview.browser)}</td>
+                    <td>${formatEntry(pageview.os)}</td>
+                    <td>${formatEntry(pageview.device)}</td>
+                    <td class="referrer-cell ${pageview.referrer ? '' : 'direct'}">${formatReferrer(pageview.referrer)}</td>
                 `;
 
                 tbody.appendChild(row);
@@ -105,52 +106,19 @@ function formatTimestamp(date) {
 /**
  * Format country name
  */
-function formatCountry(country) {
-    if (!country || !country.Name) {
-        return '—';
-    }
-    return escapeHtml(country.Name);
+function formatEntry(entry) {
+  return entry || '—';
 }
 
-/**
- * Format browser name
- */
-function formatBrowser(browser) {
-    if (!browser || !browser.Name) {
-        return '—';
-    }
-    return escapeHtml(browser.Name);
-}
-
-/**
- * Format operating system name
- */
-function formatOS(os) {
-    if (!os || !os.Name) {
-        return '—';
-    }
-    return escapeHtml(os.Name);
-}
-
-/**
- * Format device type
- */
-function formatDeviceType(deviceType) {
-    if (!deviceType || !deviceType.Name) {
-        return '—';
-    }
-    const name = deviceType.Name;
-    return escapeHtml(name.charAt(0).toUpperCase() + name.slice(1));
-}
 
 /**
  * Format referrer
  */
 function formatReferrer(referrer) {
-    if (!referrer || !referrer.Host) {
+    if (!referrer) {
         return 'Direct';
     }
-    return escapeHtml(referrer.Host);
+    return escapeHtml(referrer);
 }
 
 /**

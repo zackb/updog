@@ -108,7 +108,8 @@ func (h *Handler) handleListPageviews(w http.ResponseWriter, r *http.Request) {
 		httpx.JSONError(w, "Error reading pageviews", http.StatusInternalServerError)
 		return
 	}
-	err = json.NewEncoder(w).Encode(pvs)
+	dtos := ToPageviewDTOs(pvs)
+	err = json.NewEncoder(w).Encode(dtos)
 	httpx.CheckError(w, err)
 }
 
