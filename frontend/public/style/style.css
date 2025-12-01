@@ -1065,3 +1065,36 @@ tr:last-child td {
 .flatpickr-months .flatpickr-next-month:hover svg {
     fill: var(--accent-primary) !important;
 }
+
+.leaflet-container {
+    background-color: #1a1d24;
+}
+
+.leaflet-popup-content-wrapper {
+    background-color: #2a2d35;
+    color: #e4e4e7;
+    border-radius: 8px;
+}
+
+.leaflet-popup-tip {
+    background-color: #2a2d35;
+}
+
+.leaflet-control-zoom a {
+    background-color: #2a2d35;
+    color: #e4e4e7;
+    border-color: #3a3d45;
+}
+
+.leaflet-control-zoom a:hover {
+    background-color: #3a3d45;
+}
+
+.leaflet-control-attribution {
+    background-color: rgba(42, 45, 53, 0.8);
+    color: #a1a1aa;
+}
+
+.leaflet-control-attribution a {
+    color: #818cf8;
+}

@@ -69,6 +69,7 @@ func (f *Frontend) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/realtime", f.authMiddleware(f.realtime))
 	mux.HandleFunc("/domains", f.authMiddleware(f.domains))
 	mux.HandleFunc("/domains/verify", f.authMiddleware(f.verifyDomain))
+	mux.HandleFunc("/visitors", f.authMiddleware(f.visitors))
 	mux.HandleFunc("/settings", f.authMiddleware(f.settings))
 	mux.HandleFunc("/", f.index)
 }
@@ -360,6 +361,39 @@ func (f *Frontend) settings(w http.ResponseWriter, r *http.Request) {
 
 	if err := tmpl.ExecuteTemplate(w, "settings.html", data); err != nil {
 		http.Error(w, "Failed to render settings page", http.StatusInternalServerError)
+	}
+}
+
+func (f *Frontend) visitors(w http.ResponseWriter, r *http.Request) {
+	user := f.userFromRequest(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	domains, selectedDomain, err := f.getDomainsAndSelected(r, user)
+	if err != nil {
+		log.Printf("Failed to list domains: %v", err)
+	}
+
+	data := PageData{
+		Title:   "Visitors",
+		User:    user,
+		Slug:    "visitors",
+		Domains: domains,
+		Stats: &DashboardStats{
+			SelectedDomain: selectedDomain,
+		},
+		AdditionalStyles: []string{
+			"https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+		},
+		AdditionalScripts: []string{
+			"https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+		},
+	}
+
+	if err := tmpl.ExecuteTemplate(w, "visitors.html", data); err != nil {
+		http.Error(w, "Failed to render visitors page", http.StatusInternalServerError)
 	}
 }
 

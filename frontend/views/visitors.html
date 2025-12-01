@@ -1,0 +1,92 @@
+{{template "_header.html" .}}
+
+{{template "sidebar" .}}
+
+<main class="main-content">
+    {{template "topbar" .}}
+
+    <div class="dashboard-content">
+        <div class="page-header">
+            <h1>Visitor Locations</h1>
+            <p>Geographic distribution of your visitors around the world.</p>
+        </div>
+
+        <div class="map-container" style="margin-top: 2rem;">
+            <div id="map"
+                style="height: 600px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            </div>
+        </div>
+
+        <div class="stats-grid" style="margin-top: 2rem;">
+            <div class="stat-card">
+                <div class="stat-icon visitors">
+                    <i class="fa-solid fa-globe"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>Countries</h3>
+                    <p class="value">0</p>
+                    <span class="trend">Unique locations</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon view">
+                    <i class="fa-solid fa-map-pin"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>Top Country</h3>
+                    <p class="value">-</p>
+                    <span class="trend">Most visitors</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon bounce">
+                    <i class="fa-solid fa-earth-americas"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>Continents</h3>
+                    <p class="value">0</p>
+                    <span class="trend">Global reach</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    function initializeMap() {
+        if (typeof L === 'undefined') {
+            setTimeout(initializeMap, 100);
+            return;
+        }
+
+        const map = L.map('map').setView([20, 0], 2);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19,
+        }).addTo(map);
+
+        /*
+        const visitors = [
+            { lat: 40.7128, lng: -74.0060, city: "New York", count: 150 },
+            { lat: 51.5074, lng: -0.1278, city: "London", count: 120 },
+            { lat: 35.6762, lng: 139.6503, city: "Tokyo", count: 95 },
+            { lat: -33.8688, lng: 151.2093, city: "Sydney", count: 80 },
+            { lat: 48.8566, lng: 2.3522, city: "Paris", count: 110 }
+        ];
+
+        visitors.forEach(visitor => {
+            const marker = L.marker([visitor.lat, visitor.lng]).addTo(map);
+            marker.bindPopup(`<b>${visitor.city}</b><br>${visitor.count} visitors`);
+        });
+        */
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeMap);
+    } else {
+        initializeMap();
+    }
+</script>
+
+{{template "_footer.html" .}}
