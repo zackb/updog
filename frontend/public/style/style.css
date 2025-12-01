@@ -289,6 +289,10 @@ body {
     margin-bottom: 2rem;
 }
 
+.charts-section.full-width {
+    grid-template-columns: 1fr;
+}
+
 .chart-container {
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);

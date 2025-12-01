@@ -1,4 +1,4 @@
-- [ ] fix rollups
+- [x] fix rollups
 - [ ] remove bounce rate from top pages
 - [x] referrer is URL not host?!?
 - [x] Top Pages broken
@@ -7,6 +7,6 @@
 - [ ] "Pages" section with detailed pageview analytics
 - [ ] add top referrers to dashboard
 - [ ] Do something about "time on page"
-- [ ] htmx and api to remove GraphData
+- [x] htmx and api to remove GraphData
 - [ ] docker fix for js and tls certs
 - [ ] helm deployment

@@ -65,8 +65,8 @@
             </div>
         </div>
 
-        <!-- Charts Section -->
-        <div class="charts-section">
+        <!-- Traffic Overview Section (Full Width) -->
+        <div class="charts-section full-width">
             <div class="chart-container main-chart">
                 <div class="chart-header">
                     <h2>Traffic Overview</h2>
@@ -82,6 +82,49 @@
                     {{else}}
                     <p style="width: 100%; text-align: center; color: var(--text-secondary);">No data available</p>
                     {{end}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Pages and Device Usage Section (Side by Side) -->
+        <div class="charts-section">
+            <!-- Recent Activity Table -->
+            <div class="table-section">
+                <div class="section-header">
+                    <h2>Top Pages</h2>
+                    <a href="#" class="view-all">View All</a>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Page</th>
+                                <th>Views</th>
+                                <th>Unique</th>
+                                <th>Bounce Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Stats.TopPages}}
+                            <tr>
+                                <td>
+                                    <div class="page-info">
+                                        <span class="path">{{.Path}}</span>
+                                    </div>
+                                </td>
+                                <td>{{.Count}}</td>
+                                <td>{{.UniqueCount}}</td>
+                                <td>{{printf "%.1f" .BounceRate}}%</td>
+                            </tr>
+                            {{else}}
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: var(--text-secondary);">No pages
+                                    viewed
+                                    yet</td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
                 </div>
             </div>
             <div class="chart-container secondary-chart">
@@ -105,7 +148,7 @@
                             // Prepare segment data
                             const data = [
                                 {{ range $index, $d:= .Stats.DeviceUsage }}
-                                {{ if $index}}, {{ end }}
+                                {{ if $index }}, {{ end }}
                         {
                             label: '{{$d.DeviceType}}',
                                 percentage: {{ $d.Percentage }},
@@ -166,46 +209,8 @@
                 </div>
             </div>
         </div>
-
-        <!-- Recent Activity Table -->
-        <div class="table-section">
-            <div class="section-header">
-                <h2>Top Pages</h2>
-                <a href="#" class="view-all">View All</a>
-            </div>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Page</th>
-                            <th>Views</th>
-                            <th>Unique</th>
-                            <th>Bounce Rate</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{range .Stats.TopPages}}
-                        <tr>
-                            <td>
-                                <div class="page-info">
-                                    <span class="path">{{.Path}}</span>
-                                </div>
-                            </td>
-                            <td>{{.Count}}</td>
-                            <td>{{.UniqueCount}}</td>
-                            <td>{{printf "%.1f" .BounceRate}}%</td>
-                        </tr>
-                        {{else}}
-                        <tr>
-                            <td colspan="4" style="text-align: center; color: var(--text-secondary);">No pages viewed
-                                yet</td>
-                        </tr>
-                        {{end}}
-                    </tbody>
-                </table>
-            </div>
-        </div>
     </div>
 </main>
+
 
 {{template "_footer.html" .}}
