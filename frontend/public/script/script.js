@@ -54,8 +54,7 @@ function loadRealtimePageviews() {
                 row.innerHTML = `
                     <td class="time-cell">${timeStr}</td>
                     <td class="path-cell">${escapeHtml(pageview.path || '/')}</td>
-                    <td>${formatEntry(pageview.country)}</td>
-                    <td>${formatEntry(pageview.region)}</td>
+                    <td>${formatLocation(pageview)}</td>
                     <td>${formatEntry(pageview.browser)}</td>
                     <td>${formatEntry(pageview.os)}</td>
                     <td>${formatEntry(pageview.device)}</td>
@@ -143,6 +142,20 @@ function formatTimestamp(date) {
  */
 function formatEntry(entry) {
   return entry || '—';
+}
+
+function formatLocation(pageview) {
+    const parts = [];
+    if (pageview.city) {
+        parts.push(escapeHtml(pageview.city));
+    }
+    if (pageview.region) {
+        parts.push(escapeHtml(pageview.region));
+    }
+    if (pageview.country) {
+        parts.push(escapeHtml(pageview.country));
+    }
+    return parts.length > 0 ? parts.join(', ') : '—';
 }
 
 

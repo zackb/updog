@@ -30,6 +30,7 @@ func (db *DB) ListPageviewsByDomainID(ctx context.Context, domainID string, star
 		Model(&pageviews).
 		Relation("Country").
 		Relation("Region").
+		Relation("City").
 		Relation("Browser").
 		Relation("OS").
 		Relation("Domain").

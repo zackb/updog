@@ -177,6 +177,7 @@ type PageviewDTO struct {
 	DomainID  string    `json:"domain_id"`
 	Country   string    `json:"country"`
 	Region    string    `json:"region"`
+	City      string    `json:"city"`
 	Browser   string    `json:"browser"`
 	OS        string    `json:"os"`
 	Device    string    `json:"device"`
@@ -204,6 +205,9 @@ func ToPageviewDTO(pv *Pageview) *PageviewDTO {
 	}
 	if pv.Region != nil {
 		dto.Region = pv.Region.Name
+	}
+	if pv.City != nil {
+		dto.City = pv.City.Name
 	}
 	if pv.Browser != nil {
 		dto.Browser = pv.Browser.Name
