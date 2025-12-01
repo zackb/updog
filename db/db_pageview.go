@@ -252,7 +252,7 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
         AND %s = visitor_pv.day
         WHERE pageview.ts >= ? AND pageview.ts < ?
         GROUP BY pageview.domain_id, pageview.country_id, pageview.region_id, pageview.browser_id,
-                 pageview.os_id, pageview.device_type_id, pageview.language_id, pageview.referrer_id, path_id, %s
+                 pageview.os_id, pageview.device_type_id, pageview.language_id, pageview.referrer_id, pageview.path_id, %s
         ON CONFLICT (day, domain_id, country_id, region_id, browser_id, os_id, device_type_id, language_id, referrer_id, path_id)
         DO UPDATE SET
             count = EXCLUDED.count,
@@ -264,8 +264,12 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
 }
 
 func (db *DB) GetHourlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
+	// truncate to hour
+	start = start.Truncate(time.Hour)
+	end = end.Truncate(time.Hour)
+
 	var stats []*pageview.AggregatedPoint
-	timeExpr := db.dateTrunc("hour", "ts") // handles SQLite/Postgres
+	timeExpr := db.dateTrunc("hour", "ts")
 
 	query := fmt.Sprintf(`
 		WITH visitor_hourly AS (
@@ -303,10 +307,20 @@ func (db *DB) GetHourlyStats(ctx context.Context, domainID string, start, end ti
 		domainID, start, end, // hourly_counts
 	).Scan(ctx, &stats)
 
-	return stats, err
+	if err != nil {
+		return nil, err
+	}
+
+	return fillGaps(stats, start, end, func(t time.Time) time.Time {
+		return t.Add(time.Hour)
+	}), nil
 }
 
 func (db *DB) GetDailyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
+	// Truncate to day (UTC)
+	start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
+	end = time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, time.UTC)
+
 	var stats []*pageview.AggregatedPoint
 
 	// normalize current day in UTC
@@ -382,10 +396,16 @@ func (db *DB) GetDailyStats(ctx context.Context, domainID string, start, end tim
 		stats = append(stats, liveStats...)
 	}
 
-	return stats, nil
+	return fillGaps(stats, start, end, func(t time.Time) time.Time {
+		return t.AddDate(0, 0, 1)
+	}), nil
 }
 
 func (db *DB) GetMonthlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
+	// Truncate to month (UTC)
+	start = time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end = time.Date(end.Year(), end.Month(), 1, 0, 0, 0, 0, time.UTC)
+
 	var stats []*pageview.AggregatedPoint
 	timeExpr := db.dateTrunc("month", "ts")
 
@@ -400,7 +420,14 @@ func (db *DB) GetMonthlyStats(ctx context.Context, domainID string, start, end t
 		GroupExpr("time").
 		OrderExpr("time ASC").
 		Scan(ctx, &stats)
-	return stats, err
+
+	if err != nil {
+		return nil, err
+	}
+
+	return fillGaps(stats, start, end, func(t time.Time) time.Time {
+		return t.AddDate(0, 1, 0)
+	}), nil
 }
 
 func (db *DB) dateTrunc(unit string, col string) string {
@@ -416,4 +443,35 @@ func (db *DB) dateTrunc(unit string, col string) string {
 	}
 	// Postgres
 	return fmt.Sprintf("date_trunc('%s', %s)", unit, col)
+}
+
+func fillGaps(stats []*pageview.AggregatedPoint, start, end time.Time, step func(time.Time) time.Time) []*pageview.AggregatedPoint {
+	if len(stats) == 0 {
+		// If no stats, just fill everything with zeros
+		var filled []*pageview.AggregatedPoint
+		for t := start; t.Before(end) || t.Equal(end); t = step(t) {
+			filled = append(filled, &pageview.AggregatedPoint{
+				Time: t,
+			})
+		}
+		return filled
+	}
+
+	// Create a map for quick lookup
+	statsMap := make(map[int64]*pageview.AggregatedPoint)
+	for _, s := range stats {
+		statsMap[s.Time.Unix()] = s
+	}
+
+	var filled []*pageview.AggregatedPoint
+	for t := start; t.Before(end) || t.Equal(end); t = step(t) {
+		if s, ok := statsMap[t.Unix()]; ok {
+			filled = append(filled, s)
+		} else {
+			filled = append(filled, &pageview.AggregatedPoint{
+				Time: t,
+			})
+		}
+	}
+	return filled
 }
