@@ -365,7 +365,7 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
             COUNT(*) AS count,
             COUNT(DISTINCT pageview.visitor_id) AS unique_visitors,
             -- bounces as fraction of single-page visitors
-            SUM(CASE WHEN visitor_pv.pv_count = 1 THEN 1.0 ELSE 0 END) / 
+            SUM(CASE WHEN visitor_pv.pv_count = 1 THEN 1 ELSE 0 END) / 
                 NULLIF(COUNT(DISTINCT pageview.visitor_id), 0) AS bounces
         FROM pageviews AS pageview
         LEFT JOIN (
