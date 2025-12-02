@@ -33,12 +33,12 @@ func (h *Handler) Routes() chi.Router {
 
 	r.Group(func(protected chi.Router) {
 		protected.Use(middleware.AuthMiddleware(h.auth))
-		protected.Get("/", h.handleListPageviews)
-		protected.Get("/visitors", h.handleGetVisitors)
-		protected.Get("/hourly", h.handleGetHourlyStats)
-		protected.Get("/daily", h.handleGetDailyStats)
-		protected.Get("/monthly", h.handleGetMonthlyStats)
-		protected.Get("/stats", h.handleGetAggregatedStats)
+		protected.Get("/", h.WithApi(h.handleListPageviews))
+		protected.Get("/visitors", h.WithApi(h.handleGetVisitors))
+		protected.Get("/hourly", h.WithApi(h.handleGetHourlyStats))
+		protected.Get("/daily", h.WithApi(h.handleGetDailyStats))
+		protected.Get("/monthly", h.WithApi(h.handleGetMonthlyStats))
+		protected.Get("/stats", h.WithApi(h.handleGetAggregatedStats))
 		// TODO: remove this
 		protected.Get("/rollup", h.handleRollup)
 	})
@@ -46,35 +46,13 @@ func (h *Handler) Routes() chi.Router {
 	return r
 }
 
-func (h *Handler) handleGetVisitors(w http.ResponseWriter, r *http.Request) {
-	userID := httpx.UserIDFromRequest(r)
-	if userID == "" {
-		httpx.JSONError(w, "Bad state", http.StatusInternalServerError)
-		return
-	}
+func (h *Handler) handleGetVisitors(req *ApiRequest) error {
 
-	from, to, err := httpx.ParseTimeParams(r)
+	visitors, err := h.store.GetGeoStats(req.R.Context(), req.DomainID, req.From, req.To)
 	if err != nil {
-		httpx.JSONError(w, err.Error(), http.StatusBadRequest)
-		return
+		return NewApiError("Error reading visitors", http.StatusInternalServerError)
 	}
-
-	domainID, err := h.resolveDomainID(r, userID)
-
-	if err != nil || domainID == "" {
-		log.Printf("Failed to resolve domain: %v", err)
-		httpx.JSONError(w, "Failed to resolve domain", http.StatusInternalServerError)
-		return
-	}
-
-	visitors, err := h.store.GetGeoStats(r.Context(), domainID, from, to)
-	if err != nil {
-		log.Println("Error reading visitors:", err)
-		httpx.JSONError(w, "Error reading visitors", http.StatusInternalServerError)
-		return
-	}
-	err = json.NewEncoder(w).Encode(visitors)
-	httpx.CheckError(w, err)
+	return json.NewEncoder(req.W).Encode(visitors)
 }
 
 func (h *Handler) handleRollup(w http.ResponseWriter, r *http.Request) {
@@ -98,166 +76,42 @@ func (h *Handler) handleRollup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *Handler) handleListPageviews(w http.ResponseWriter, r *http.Request) {
-	userID := httpx.UserIDFromRequest(r)
-	if userID == "" {
-		httpx.JSONError(w, "Bad state", http.StatusInternalServerError)
-		return
-	}
-
-	from, to, err := httpx.ParseTimeParams(r)
+func (h *Handler) handleListPageviews(req *ApiRequest) error {
+	pvs, err := h.store.ListPageviewsByDomainID(req.R.Context(), req.DomainID, req.From, req.To, 1000, 0)
 	if err != nil {
-		httpx.JSONError(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	domainID, err := h.resolveDomainID(r, userID)
-
-	if err != nil || domainID == "" {
-		log.Printf("Failed to resolve domain: %v", err)
-		httpx.JSONError(w, "Failed to resolve domain", http.StatusInternalServerError)
-		return
-	}
-
-	pvs, err := h.store.ListPageviewsByDomainID(r.Context(), domainID, from, to, 1000, 0)
-	if err != nil {
-		log.Println("Error reading pageviews:", err)
-		httpx.JSONError(w, "Error reading pageviews", http.StatusInternalServerError)
-		return
+		return NewApiError("Error reading pageviews", http.StatusInternalServerError)
 	}
 	dtos := ToPageviewDTOs(pvs)
-	err = json.NewEncoder(w).Encode(dtos)
-	httpx.CheckError(w, err)
+	return json.NewEncoder(req.W).Encode(dtos)
 }
 
-func (h *Handler) handleGetHourlyStats(w http.ResponseWriter, r *http.Request) {
-	h.handleGetStats(w, r, h.store.GetHourlyStats)
+func (h *Handler) handleGetHourlyStats(req *ApiRequest) error {
+	return h.handleGetStats(req, h.store.GetHourlyStats)
 }
 
-func (h *Handler) handleGetDailyStats(w http.ResponseWriter, r *http.Request) {
-	h.handleGetStats(w, r, h.store.GetDailyStats)
+func (h *Handler) handleGetDailyStats(req *ApiRequest) error {
+	return h.handleGetStats(req, h.store.GetDailyStats)
 }
 
-func (h *Handler) handleGetMonthlyStats(w http.ResponseWriter, r *http.Request) {
-	h.handleGetStats(w, r, h.store.GetMonthlyStats)
+func (h *Handler) handleGetMonthlyStats(req *ApiRequest) error {
+	return h.handleGetStats(req, h.store.GetMonthlyStats)
 }
 
-func (h *Handler) handleGetAggregatedStats(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleGetAggregatedStats(req *ApiRequest) error {
 
-	from, to, err := httpx.ParseTimeParams(r)
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	userID := httpx.UserIDFromRequest(r)
-	if userID == "" {
-		httpx.JSONError(w, "Bad state", http.StatusInternalServerError)
-		return
-	}
-
-	domainID, err := h.resolveDomainID(r, userID)
-	if err != nil {
-		log.Printf("Failed to resolve domain: %v", err)
-		httpx.JSONError(w, "Failed to resolve domain", http.StatusInternalServerError)
-		return
-	}
-	if domainID == "" {
-		httpx.JSONError(w, "No domain found", http.StatusNotFound)
-		return
-	}
-
-	stats, err := h.store.GetAggregatedStats(r.Context(), domainID, from, to)
+	stats, err := h.store.GetAggregatedStats(req.R.Context(), req.DomainID, req.From, req.To)
 
 	if err != nil {
 		log.Println("Error reading stats:", err)
-		httpx.JSONError(w, "Error reading stats", http.StatusInternalServerError)
-		return
+		return NewApiError("Error reading stats", http.StatusInternalServerError)
 	}
-	err = json.NewEncoder(w).Encode(stats)
-	httpx.CheckError(w, err)
+	return json.NewEncoder(req.W).Encode(stats)
 }
 
-func (h *Handler) handleGetStats(w http.ResponseWriter, r *http.Request, statsFunc func(context.Context, string, time.Time, time.Time) ([]*AggregatedPoint, error)) {
-	userID := httpx.UserIDFromRequest(r)
-	if userID == "" {
-		httpx.JSONError(w, "Bad state", http.StatusInternalServerError)
-		return
-	}
-
-	from, to, err := httpx.ParseTimeParams(r)
+func (h *Handler) handleGetStats(req *ApiRequest, statsFunc func(context.Context, string, time.Time, time.Time) ([]*AggregatedPoint, error)) error {
+	stats, err := statsFunc(req.R.Context(), req.DomainID, req.From, req.To)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return NewApiError("Error reading stats", http.StatusInternalServerError)
 	}
-
-	domainID, err := h.resolveDomainID(r, userID)
-	if err != nil {
-		log.Printf("Failed to resolve domain: %v", err)
-		http.Error(w, "Failed to resolve domain", http.StatusInternalServerError)
-		return
-	}
-	if domainID == "" {
-		http.Error(w, "No domain found", http.StatusNotFound)
-		return
-	}
-
-	stats, err := statsFunc(r.Context(), domainID, from, to)
-	if err != nil {
-		log.Println("Error reading stats:", err)
-		httpx.JSONError(w, "Error reading stats", http.StatusInternalServerError)
-		return
-	}
-	err = json.NewEncoder(w).Encode(stats)
-	httpx.CheckError(w, err)
-}
-
-// resolveDomainID determines the domain ID to use based on the request parameters and user ownership.
-func (h *Handler) resolveDomainID(r *http.Request, userID string) (string, error) {
-	domains, err := h.domainStore.ListDomainsByUser(r.Context(), userID)
-	if err != nil {
-		return "", err
-	}
-
-	requestedDomainID := r.URL.Query().Get("domain_id")
-	if requestedDomainID != "" {
-		for _, d := range domains {
-			if d.ID == requestedDomainID {
-				return d.ID, nil
-			}
-		}
-		// user requested a domain they don't own or doesn't exist
-		return "", nil
-	}
-
-	requestedDomainName := r.URL.Query().Get("domain")
-	if requestedDomainName != "" {
-		for _, d := range domains {
-			if d.Name == requestedDomainName {
-				return d.ID, nil
-			}
-		}
-		// user requested a domain they don't own or doesn't exist
-		return "", nil
-	}
-
-	// default logic
-	var selectedDomain *domain.Domain
-	for _, d := range domains {
-		if d.Verified {
-			selectedDomain = d
-			break
-		}
-	}
-
-	if selectedDomain == nil && len(domains) > 0 {
-		selectedDomain = domains[0]
-	}
-
-	if selectedDomain != nil {
-		return selectedDomain.ID, nil
-	}
-
-	return "", nil
+	return json.NewEncoder(req.W).Encode(stats)
 }
