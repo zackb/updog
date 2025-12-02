@@ -214,7 +214,7 @@ func (f *Frontend) verifyDomain(req *UpdogRequest) error {
 	client := &http.Client{}
 	hreq, err := http.NewRequest("GET", verificationURL, nil)
 	if err != nil {
-		log.Fatal(err)
+		return NewUpError("Failed to create verification request", http.StatusInternalServerError)
 	}
 
 	// set a realistic User-Agent and Accept header
@@ -228,14 +228,7 @@ func (f *Frontend) verifyDomain(req *UpdogRequest) error {
 	}
 	defer resp.Body.Close()
 
-	// update domain as verified
-	d.Verified = true
-	// TODO: move to storage
-	_, err = f.db.Db.NewUpdate().
-		Model(d).
-		Column("verified").
-		Where("id = ?", d.ID).
-		Exec(ctx)
+	err = f.db.DomainStorage().VerifyDomain(ctx, domainID)
 
 	if err != nil {
 		log.Printf("Failed to update domain: %v", err)

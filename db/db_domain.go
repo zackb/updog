@@ -58,3 +58,11 @@ func (db *DB) ListDomainsByUser(ctx context.Context, userID string) ([]*domain.D
 	}
 	return domains, nil
 }
+func (db *DB) VerifyDomain(ctx context.Context, domainID string) error {
+	_, err := db.Db.NewUpdate().
+		Model(&domain.Domain{ID: domainID}).
+		Set("verified = TRUE").
+		WherePK().
+		Exec(ctx)
+	return err
+}

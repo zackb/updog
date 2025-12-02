@@ -11,4 +11,5 @@ type Storage interface {
 	DeleteDomain(ctx context.Context, domainID string) error
 	ListDomains(ctx context.Context, limit, offset int) ([]*Domain, error)
 	ListDomainsByUser(ctx context.Context, userID string) ([]*Domain, error)
+	VerifyDomain(ctx context.Context, domainID string) error
 }
