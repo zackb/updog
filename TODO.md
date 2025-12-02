@@ -1,9 +1,10 @@
+- [ ] API Keys create in settings (client)
 - [ ] realtime pagination
 - [ ] top pages pagination
 - [x] "Visitors" -> map?
 - [ ] logout
 - [ ] is admin
-- [ ] test data
+- [x] test data
 - [x] fix rollups
 - [ ] remove bounce rate from top pages
 - [x] referrer is URL not host?!?
