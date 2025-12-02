@@ -12,14 +12,12 @@
         </div>
 
         {{if .Stats.TopPages}}
-        <div class="card" style="margin-top: 2rem;">
-            <!--
-            <div class="card-header">
-                <h3>All Pages</h3>
+        <div class="table-section">
+            <div class="section-header">
+                <h2>All Pages</h2>
             </div>
-            -->
-            <div class="table-container">
-                <table class="data-table">
+            <div class="table-responsive">
+                <table id="pages-table">
                     <thead>
                         <tr>
                             <th>Page Path</th>
