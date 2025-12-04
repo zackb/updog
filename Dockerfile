@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -v -tags "sqlite_omit_load_extension" \
-        -ldflags '-linkmode external -extldflags "-static"' \
+        -ldflags '-linkmode external -extldflags "-static -s -w"' \
         -o updog ./cmd/updog/updog.go
 
 # Final minimal image
