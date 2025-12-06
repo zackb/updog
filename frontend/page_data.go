@@ -11,10 +11,11 @@ type DashboardStats struct {
 	SelectedDomain *domain.Domain
 	Aggregated     *pageview.AggregatedStats
 	// TODO: remove in favor of htmx loaded components
-	GraphData   []*pageview.AggregatedPoint
-	MaxViews    int64
-	TopPages    []*pageview.PageStats
-	DeviceUsage []*pageview.DeviceStats
+	GraphData       []*pageview.AggregatedPoint
+	GraphResolution string
+	MaxViews        int64
+	TopPages        []*pageview.PageStats
+	DeviceUsage     []*pageview.DeviceStats
 }
 
 type PageData struct {

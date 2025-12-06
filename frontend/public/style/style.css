@@ -320,7 +320,8 @@ body {
     padding: 2px;
 }
 
-.chart-actions button {
+.chart-actions button,
+.chart-actions a {
     background: none;
     border: none;
     color: var(--text-secondary);
@@ -329,9 +330,12 @@ body {
     cursor: pointer;
     border-radius: 4px;
     font-family: var(--font-main);
+    text-decoration: none;
+    display: inline-block;
 }
 
-.chart-actions button.active {
+.chart-actions button.active,
+.chart-actions a.active {
     background-color: var(--bg-card);
     color: var(--text-primary);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
