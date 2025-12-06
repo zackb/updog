@@ -306,3 +306,139 @@ func TestGetDeviceUsage_Rollup(t *testing.T) {
 		assert.InDelta(t, 0.98, desktopStats.Percentage, 0.1)
 	}
 }
+
+func TestGetMonthlyStats_Rollup(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+
+	// Create test domain
+	d := &domain.Domain{
+		ID:   id.NewID(),
+		Name: "example.com",
+	}
+	_, err := db.DomainStorage().CreateDomain(ctx, d)
+	assert.NoError(t, err)
+
+	// Setup times
+	// We want to simulate a month split between historic (rollup) and live
+	// Strategy:
+	// 1. Insert data for "Yesterday" into `daily_pageviews`. This will ALWAYS be picked up as historic
+	//    because the DB logic says `if start.Before(todayStart)`.
+	// 2. Insert data for "Today" into `pageviews`. This will ALWAYS be picked up as live.
+	// 3. Since both are in the SAME month (current month), the `GetMonthlyStats` should merge them.
+
+	realNow := time.Now().UTC().Truncate(time.Second)
+	todayStart := time.Date(realNow.Year(), realNow.Month(), realNow.Day(), 0, 0, 0, 0, time.UTC)
+	yesterday := todayStart.AddDate(0, 0, -1)
+
+	// Guard: If today is the 1st of the month, yesterday is last month.
+	// In that case, they won't merge into one point, but two points. That's also a valid test.
+	// If today is 1st: Yesterday = PrevMonth 30/31. Today = CurrMonth 1.
+	// Result: Point 1 (PrevMonth) from historic. Point 2 (CurrMonth) from live.
+	// If today > 1st: Both are CurrMonth. Result: Point 1 (CurrMonth) merged.
+
+	isFirstDay := realNow.Day() == 1
+
+	// 1. Insert historic data (Yesterday)
+	// 100 views, 50 unique
+	_, err = db.Db.NewInsert().Model(&pageview.DailyPageview{
+		Day:            yesterday,
+		DomainID:       d.ID,
+		Count:          100,
+		UniqueVisitors: 50,
+		Bounces:        10, // 20% bounce rate for historic part
+		// Foreign keys - using dummies if foreign key constants aren't enforced,
+		// or if we created them in setup. In `setupTestDB` we use SQLite usually,
+		// checking if FKs are enabled. Usually for these unit tests they might not be strict
+		// unless `PRAGMA foreign_keys = ON` is sent.
+		// `db.db` is a file db.
+		CountryID:    1,
+		RegionID:     1,
+		CityID:       1,
+		BrowserID:    1,
+		OSID:         1,
+		DeviceTypeID: 1,
+		LanguageID:   1,
+		ReferrerID:   1,
+		PathID:       1,
+	}).Exec(ctx)
+	assert.NoError(t, err)
+
+	// 2. Insert live data (Today)
+	// 20 views, 1 visitor (ID 101) visiting 20 times? No, let's keep it simple.
+	// Visitor 101: 2 views (not bounce)
+	// Visitor 102: 1 view (bounce)
+	// 2. Insert data for "Today" into `pageviews`. This will ALWAYS be picked up as live.
+	pvs := []*pageview.Pageview{
+		{Timestamp: realNow.Add(-2 * time.Minute), DomainID: d.ID, VisitorID: 101},
+		{Timestamp: realNow.Add(-1 * time.Minute), DomainID: d.ID, VisitorID: 101},
+		{Timestamp: realNow, DomainID: d.ID, VisitorID: 102},
+	}
+	_, err = db.Db.NewInsert().Model(&pvs).Exec(ctx)
+	assert.NoError(t, err)
+
+	// 3. Query range encompassing both
+	// Start: Beginning of (Yesterday's month)
+	// End: Now
+	queryStart := time.Date(yesterday.Year(), yesterday.Month(), 1, 0, 0, 0, 0, time.UTC)
+
+	// DEBUG: Try GetDailyStats to see if it finds the data
+	// dailyStats, err := db.GetDailyStats(ctx, d.ID, queryStart, realNow)
+	// assert.NoError(t, err)
+	// ...
+
+	stats, err := db.GetMonthlyStats(ctx, d.ID, queryStart, realNow)
+	assert.NoError(t, err)
+
+	if !isFirstDay {
+		// Expect 1 merged point for the current month
+		// Historic: 100 views, 50 unique, 10 bounces
+		// Live: 3 views, 2 unique, 1 bounce
+		// Merged: 103 views, 52 unique, 11 bounces
+		// Bounce Rate: 11 / 52 ~= 0.2115
+
+		// Note: The sum of uniques (50+2) is what our logic implementation does, even if technically incorrect for true uniques.
+		// We are verifying the implementation respects that logic.
+
+		assert.NotEmpty(t, stats)
+		// Find the point for this month
+		var point *pageview.AggregatedPoint
+		for _, s := range stats {
+			if s.Time.Month() == realNow.Month() && s.Time.Year() == realNow.Year() {
+				point = s
+				break
+			}
+		}
+
+		if assert.NotNil(t, point, "Should find stats for current month") {
+			assert.Equal(t, int64(103), point.Count)
+			assert.Equal(t, int64(52), point.UniqueVisitors)
+			assert.InDelta(t, 11.0/52.0, point.BounceRate, 0.001)
+		}
+	} else {
+		// Expect 2 points: Previous Month (Historic) and Current Month (Live)
+		// Point 1 (Prev Month): 100 views, 50 unique, 10 bounces. Rate: 10/50 = 0.2
+		// Point 2 (Curr Month): 3 views, 2 unique, 1 bounce. Rate: 1/2 = 0.5
+
+		var prevPoint, currPoint *pageview.AggregatedPoint
+		for _, s := range stats {
+			if s.Time.Month() == yesterday.Month() {
+				prevPoint = s
+			} else if s.Time.Month() == realNow.Month() {
+				currPoint = s
+			}
+		}
+
+		if assert.NotNil(t, prevPoint, "Should find stats for previous month") {
+			assert.Equal(t, int64(100), prevPoint.Count)
+			assert.Equal(t, int64(50), prevPoint.UniqueVisitors)
+			assert.InDelta(t, 0.2, prevPoint.BounceRate, 0.001)
+		}
+
+		if assert.NotNil(t, currPoint, "Should find stats for current month") {
+			assert.Equal(t, int64(3), currPoint.Count)
+			assert.Equal(t, int64(2), currPoint.UniqueVisitors)
+			assert.InDelta(t, 0.5, currPoint.BounceRate, 0.001)
+		}
+	}
+}

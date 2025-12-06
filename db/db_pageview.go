@@ -466,7 +466,7 @@ func (db *DB) GetHourlyStats(ctx context.Context, domainID string, start, end ti
 }
 
 func (db *DB) GetDailyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
-	// Truncate to day (UTC)
+	// truncate to day UTC
 	start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
 	end = time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, time.UTC)
 
@@ -551,27 +551,149 @@ func (db *DB) GetDailyStats(ctx context.Context, domainID string, start, end tim
 }
 
 func (db *DB) GetMonthlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
-	// Truncate to month (UTC)
+	// truncate start to month UTC
 	start = time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end = time.Date(end.Year(), end.Month(), 1, 0, 0, 0, 0, time.UTC)
+	// do NOT truncate end, as we need to include data up to the requested time, current partial month
 
+	// normalize current day in UTC
+	now := time.Now().UTC()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	// determine historic and live ranges
+	historicEnd := end
+	if historicEnd.After(todayStart) {
+		historicEnd = todayStart.Add(-time.Nanosecond) // just before today
+	}
+
+	liveStart := start
+	if liveStart.Before(todayStart) {
+		liveStart = todayStart
+	}
+
+	// internal struct to hold counts before calculating rate
+	type monthlyData struct {
+		Time           time.Time
+		Count          int64
+		UniqueVisitors int64
+		Bounces        int64
+	}
+
+	dataMap := make(map[int64]*monthlyData)
+
+	// historic from daily_pageviews
+	if start.Before(todayStart) {
+		var historic []struct {
+			Time           time.Time `bun:"time"`
+			Count          int64     `bun:"count"`
+			UniqueVisitors int64     `bun:"unique_visitors"`
+			Bounces        int64     `bun:"bounces"`
+		}
+
+		timeExpr := db.dateTrunc("month", "day")
+
+		err := db.Db.NewSelect().
+			Model((*pageview.DailyPageview)(nil)).
+			ColumnExpr(timeExpr+" AS time").
+			ColumnExpr("SUM(count) AS count").
+			ColumnExpr("SUM(unique_visitors) AS unique_visitors").
+			ColumnExpr("SUM(bounces) AS bounces").
+			Where("domain_id = ?", domainID).
+			Where("day >= ?", start).
+			Where("day <= ?", historicEnd).
+			GroupExpr(timeExpr).
+			OrderExpr("time ASC").
+			Scan(ctx, &historic)
+
+		if err != nil {
+			return nil, fmt.Errorf("reading historic monthly stats: %w", err)
+		}
+
+		for _, h := range historic {
+			dataMap[h.Time.Unix()] = &monthlyData{
+				Time:           h.Time,
+				Count:          h.Count,
+				UniqueVisitors: h.UniqueVisitors,
+				Bounces:        h.Bounces,
+			}
+		}
+	}
+
+	// live from pageviews
+	if end.After(todayStart) || end.Equal(todayStart) {
+		timeExpr := db.dateTrunc("month", "pageview.ts")
+
+		// subquery for bounces
+		visitorSubq := db.Db.NewSelect().
+			Model((*pageview.Pageview)(nil)).
+			ColumnExpr(db.dateTrunc("month", "ts")+" AS month").
+			Column("visitor_id").
+			ColumnExpr("COUNT(*) AS pv_count").
+			Where("ts >= ?", liveStart).
+			Where("ts <= ?", end).
+			GroupExpr("visitor_id, " + db.dateTrunc("month", "ts"))
+
+		var live []struct {
+			Time           time.Time `bun:"time"`
+			Count          int64     `bun:"count"`
+			UniqueVisitors int64     `bun:"unique_visitors"`
+			Bounces        int64     `bun:"bounces"`
+		}
+
+		err := db.Db.NewSelect().
+			Model((*pageview.Pageview)(nil)).
+			ColumnExpr(timeExpr+" AS time").
+			ColumnExpr("COUNT(*) AS count").
+			ColumnExpr("COUNT(DISTINCT pageview.visitor_id) AS unique_visitors").
+			ColumnExpr("SUM(CASE WHEN visitor_month.pv_count = 1 THEN 1 ELSE 0 END) AS bounces").
+			Join("LEFT JOIN (?) AS visitor_month ON pageview.visitor_id = visitor_month.visitor_id AND "+timeExpr+" = visitor_month.month", visitorSubq).
+			Where("pageview.domain_id = ?", domainID).
+			Where("ts >= ?", liveStart).
+			Where("ts <= ?", end).
+			GroupExpr(timeExpr).
+			OrderExpr("time ASC").
+			Scan(ctx, &live)
+
+		if err != nil {
+			return nil, fmt.Errorf("reading live monthly stats: %w", err)
+		}
+
+		for _, l := range live {
+			ts := l.Time.Unix()
+			if existing, ok := dataMap[ts]; ok {
+				existing.Count += l.Count
+				existing.UniqueVisitors += l.UniqueVisitors
+				existing.Bounces += l.Bounces
+			} else {
+				dataMap[ts] = &monthlyData{
+					Time:           l.Time,
+					Count:          l.Count,
+					UniqueVisitors: l.UniqueVisitors,
+					Bounces:        l.Bounces,
+				}
+			}
+		}
+	}
+
+	// convert back to slice and calculate rates
 	var stats []*pageview.AggregatedPoint
-	timeExpr := db.dateTrunc("month", "ts")
+	for _, d := range dataMap {
+		p := &pageview.AggregatedPoint{
+			Time:           d.Time,
+			Count:          d.Count,
+			UniqueVisitors: d.UniqueVisitors,
+		}
+		if d.UniqueVisitors > 0 {
+			p.BounceRate = float64(d.Bounces) / float64(d.UniqueVisitors)
+		}
+		stats = append(stats, p)
+	}
 
-	err := db.Db.NewSelect().
-		Model((*pageview.Pageview)(nil)).
-		ColumnExpr(timeExpr+" as time").
-		ColumnExpr("count(*) as count").
-		ColumnExpr("count(distinct visitor_id) as unique_visitors").
-		Where("domain_id = ?", domainID).
-		Where("ts >= ?", start).
-		Where("ts <= ?", end).
-		GroupExpr("time").
-		OrderExpr("time ASC").
-		Scan(ctx, &stats)
-
-	if err != nil {
-		return nil, err
+	for i := 0; i < len(stats); i++ {
+		for j := i + 1; j < len(stats); j++ {
+			if stats[i].Time.After(stats[j].Time) {
+				stats[i], stats[j] = stats[j], stats[i]
+			}
+		}
 	}
 
 	return fillGaps(stats, start, end, func(t time.Time) time.Time {
@@ -680,11 +802,12 @@ func (db *DB) dateTrunc(unit string, col string) string {
 	if db.Db.Dialect().Name().String() == "sqlite" {
 		switch unit {
 		case "hour":
-			return fmt.Sprintf("strftime('%%Y-%%m-%%d %%H:00:00', %s)", col)
+			return fmt.Sprintf("strftime('%%Y-%%m-%%dT%%H:00:00Z', %s)", col)
 		case "day":
 			return fmt.Sprintf("date(%s)", col)
 		case "month":
-			return fmt.Sprintf("strftime('%%Y-%%m-01 00:00:00', %s)", col)
+			// Use strftime to ensure YYYY-MM-01 format, strictly compatible with our GROUP BY expectations
+			return fmt.Sprintf("strftime('%%Y-%%m-01', %s)", col)
 		}
 	}
 	// Postgres
