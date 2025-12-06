@@ -415,7 +415,6 @@ func (db *DB) RunDailyRollup(ctx context.Context, dayStart time.Time) error {
 func (db *DB) GetHourlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
 	// truncate to hour
 	start = start.Truncate(time.Hour)
-	// end = end.Truncate(time.Hour)
 
 	var stats []*pageview.AggregatedPoint
 	timeExpr := db.dateTrunc("hour", "ts")
@@ -552,7 +551,6 @@ func (db *DB) GetDailyStats(ctx context.Context, domainID string, start, end tim
 func (db *DB) GetMonthlyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
 	// truncate start to month UTC
 	start = time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, time.UTC)
-	// do NOT truncate end, as we need to include data up to the requested time, current partial month
 
 	// normalize current day in UTC
 	now := time.Now().UTC()
