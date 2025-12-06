@@ -100,9 +100,9 @@ func (f *Frontend) dashboard(req *UpdogRequest) error {
 
 		switch resolution {
 		case "daily":
-			graph, err = f.ps.GetDailyStats(ctx, req.SelectedDomain.ID, graphEnd.AddDate(0, 0, -30), graphEnd)
+			graph, err = f.ps.GetDailyStats(ctx, req.SelectedDomain.ID, graphEnd.AddDate(0, 0, -23), graphEnd)
 		case "monthly":
-			graph, err = f.ps.GetMonthlyStats(ctx, req.SelectedDomain.ID, graphEnd.AddDate(-1, 0, 0), graphEnd)
+			graph, err = f.ps.GetMonthlyStats(ctx, req.SelectedDomain.ID, graphEnd.AddDate(0, -23, 0), graphEnd)
 		default: // hourly
 			graph, err = f.ps.GetHourlyStats(ctx, req.SelectedDomain.ID, graphEnd.Add(-23*time.Hour), graphEnd)
 		}
