@@ -468,7 +468,6 @@ func (db *DB) GetHourlyStats(ctx context.Context, domainID string, start, end ti
 func (db *DB) GetDailyStats(ctx context.Context, domainID string, start, end time.Time) ([]*pageview.AggregatedPoint, error) {
 	// truncate to day UTC
 	start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
-	end = time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, time.UTC)
 
 	var stats []*pageview.AggregatedPoint
 

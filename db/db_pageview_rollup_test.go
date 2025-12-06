@@ -442,3 +442,73 @@ func TestGetMonthlyStats_Rollup(t *testing.T) {
 		}
 	}
 }
+
+func TestGetDailyStats_PartialDay(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+
+	d := &domain.Domain{ID: id.NewID(), Name: "example.com"}
+	_, err := db.DomainStorage().CreateDomain(ctx, d)
+	assert.NoError(t, err)
+
+	// Setup: Now is today at 15:30
+	now := time.Now().UTC()
+	today3pm := time.Date(now.Year(), now.Month(), now.Day(), 15, 30, 0, 0, time.UTC)
+
+	// Insert a view at 15:00 (inside the requested range ending at 15:30)
+	_, err = db.Db.NewInsert().Model(&pageview.Pageview{
+		Timestamp: time.Date(now.Year(), now.Month(), now.Day(), 15, 0, 0, 0, time.UTC),
+		DomainID:  d.ID,
+		VisitorID: 101,
+		PathID:    1,
+	}).Exec(ctx)
+	assert.NoError(t, err)
+
+	// Query from beginning of day to 15:30
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	end := today3pm
+
+	stats, err := db.GetDailyStats(ctx, d.ID, start, end)
+	assert.NoError(t, err)
+
+	// Should return 1 point (today) with count 1
+	// If it fails (count 0 or empty), it means truncation excluded the partial day
+	if assert.NotEmpty(t, stats) {
+		// Find today's point
+		found := false
+		for _, s := range stats {
+			if s.Time.Equal(start) {
+				found = true
+				if s.Count != 1 {
+					t.Errorf("Expected count 1 for today, got %d", s.Count)
+				}
+			}
+		}
+		if !found {
+			t.Error("Did not find stats for today")
+		}
+	} else {
+		t.Error("Stats slice is empty")
+	}
+
+	// Also verify Hourly
+	// Query from 14:00 to 15:30.
+	// 15:00 view falls into 15:00-16:00 bucket (or 15:00 bucket).
+	// GetHourlyStats end is 15:30.
+	// Should include 15:00 bucket.
+	hStats, err := db.GetHourlyStats(ctx, d.ID, start.Add(14*time.Hour), end)
+	assert.NoError(t, err)
+
+	found15 := false
+	for _, s := range hStats {
+		if s.Time.Hour() == 15 {
+			found15 = true
+			if s.Count != 1 {
+				t.Errorf("Expected count 1 for 15:00 bucket, got %d", s.Count)
+			}
+		}
+	}
+	if !found15 {
+		t.Error("Did not find 15:00 bucket")
+	}
+}
