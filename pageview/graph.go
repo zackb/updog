@@ -7,7 +7,7 @@ import (
 	texttemplate "text/template"
 )
 
-func RenderSVG(stats []*AggregatedPoint) template.HTML {
+func RenderSVG(stats []*AggregatedPoint, resolution string) template.HTML {
 	if len(stats) == 0 {
 		return ""
 	}
@@ -67,13 +67,23 @@ func RenderSVG(stats []*AggregatedPoint) template.HTML {
 		yTotal := topPadding + maxH - totalH
 		yUnique := topPadding + maxH - uniqueH
 
+		var timeLabel string
+		switch resolution {
+		case "daily":
+			timeLabel = s.Time.Format("Jan 02")
+		case "monthly":
+			timeLabel = s.Time.Format("Jan 06")
+		default: // hourly
+			timeLabel = s.Time.Format("15:04")
+		}
+
 		bars = append(bars, Bar{
 			X:            x,
 			YTotal:       yTotal,
 			HeightTotal:  totalH,
 			YUnique:      yUnique,
 			HeightUnique: uniqueH,
-			TimeLabel:    s.Time.Format("15:04"),
+			TimeLabel:    timeLabel,
 			FullDate:     s.Time.Format("Jan 02, 2006 15:04"),
 			Total:        s.Count,
 			Unique:       s.UniqueVisitors,

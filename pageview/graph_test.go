@@ -23,7 +23,7 @@ func TestRenderSVG(t *testing.T) {
 		},
 	}
 
-	html := RenderSVG(stats)
+	html := RenderSVG(stats, "hourly")
 	svg := string(html)
 
 	if !strings.Contains(svg, "<svg") {

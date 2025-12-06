@@ -73,14 +73,17 @@
                 <div class="chart-header">
                     <h2>Traffic Overview</h2>
                     <div class="chart-actions">
-                        <a href="?resolution=hourly" class='{{if or (eq .Stats.GraphResolution "hourly") (eq .Stats.GraphResolution "" )}}active{{end}}'>Hourly</a>
-                        <a href="?resolution=daily" class='{{if eq .Stats.GraphResolution "daily"}}active{{end}}'>Daily</a>
-                        <a href="?resolution=monthly" class='{{if eq .Stats.GraphResolution "monthly"}}active{{end}}'>Monthly</a>
+                        <a href="?resolution=hourly"
+                            class='{{if or (eq .Stats.GraphResolution "hourly") (eq .Stats.GraphResolution "" )}}active{{end}}'>Hourly</a>
+                        <a href="?resolution=daily"
+                            class='{{if eq .Stats.GraphResolution "daily"}}active{{end}}'>Daily</a>
+                        <a href="?resolution=monthly"
+                            class='{{if eq .Stats.GraphResolution "monthly"}}active{{end}}'>Monthly</a>
                     </div>
                 </div>
                 <div class="chart-placeholder">
                     {{if .Stats.GraphData}}
-                    {{RenderSVG .Stats.GraphData}}
+                    {{RenderSVG .Stats.GraphData .Stats.GraphResolution}}
                     {{else}}
                     <p style="width: 100%; text-align: center; color: var(--text-secondary);">No data available</p>
                     {{end}}

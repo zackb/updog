@@ -7,10 +7,9 @@ import (
 )
 
 type DashboardStats struct {
-	TotalPageviews int
-	SelectedDomain *domain.Domain
-	Aggregated     *pageview.AggregatedStats
-	// TODO: remove in favor of htmx loaded components
+	TotalPageviews  int
+	SelectedDomain  *domain.Domain
+	Aggregated      *pageview.AggregatedStats
 	GraphData       []*pageview.AggregatedPoint
 	GraphResolution string
 	MaxViews        int64
